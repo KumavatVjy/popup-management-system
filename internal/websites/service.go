@@ -92,12 +92,25 @@ func (s *websiteService) GetByID(id uint) (*Website, error) {
 
 func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 
-	return nil
+	website, err := s.repository.GetByID(id)
 
+	if err != nil {
+		return err
+	}
+
+	if !isValidPlatform(request.Platform) {
+		return errors.New("invalid platform")
+	}
+
+	website.WebsiteName = strings.TrimSpace(request.WebsiteName)
+	website.Domain = strings.ToLower(strings.TrimSpace(request.Domain))
+	website.Platform = request.Platform
+	website.Status = request.Status
+
+	return s.repository.Update(website)
 }
 
 func (s *websiteService) Delete(id uint) error {
-
 	return s.repository.Delete(id)
-
 }
+

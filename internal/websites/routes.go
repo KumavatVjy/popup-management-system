@@ -16,4 +16,10 @@ func RegisterRoutes(router *gin.RouterGroup, controller *WebsiteController) {
 
 	websites.GET("", controller.List)
 
+	websites.GET("/:id", controller.GetByID)
+
+	websites.PUT("/:id", controller.Update)
+
+	websites.DELETE("/:id", controller.Delete)
+
 }
