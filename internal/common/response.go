@@ -6,17 +6,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
 func Success(c *gin.Context, message string, data interface{}) {
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": message,
-		"data":    data,
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Message: message,
+		Data:    data,
 	})
 }
 
 func Error(c *gin.Context, status int, message string) {
-	c.JSON(status, gin.H{
-		"success": false,
-		"message": message,
+	c.JSON(status, APIResponse{
+		Success: false,
+		Message: message,
 	})
 }

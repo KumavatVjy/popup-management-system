@@ -74,3 +74,13 @@ func (uc *UserController) Login(c *gin.Context) {
 		},
 	})
 }
+
+
+func (uc *UserController) Profile(c *gin.Context) {
+
+	common.Success(c, "Profile fetched successfully", gin.H{
+		"user_id": c.GetUint("user_id"),
+		"email":   c.GetString("email"),
+		"role":    c.GetString("role"),
+	})
+}

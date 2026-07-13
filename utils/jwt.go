@@ -29,3 +29,27 @@ func GenerateJWT(userID uint, email, role, secret string, expireHours int) (stri
 
 	return token.SignedString([]byte(secret))
 }
+
+
+func ValidateJWT(tokenString, secret string) (*JWTClaims, error) {
+
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&JWTClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*JWTClaims)
+
+	if !ok || !token.Valid {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+
+	return claims, nil
+}
