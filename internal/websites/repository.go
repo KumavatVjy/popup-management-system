@@ -53,7 +53,7 @@ func (r *websiteRepository) GetAll(params common.QueryParams) ([]Website, int64,
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit
-	err := db.Offset(offset).Limit(params.Limit).Find(&websites).Error
+	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&websites).Error
 
 	return websites, total, err
 

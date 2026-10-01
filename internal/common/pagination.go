@@ -2,6 +2,7 @@ package common
 
 import (
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,8 @@ type QueryParams struct {
 	Page   int
 	Limit  int
 	Search string
+	Sort   string
+	Order  string
 }
 
 type Pagination struct {
@@ -34,10 +37,23 @@ func GetQueryParams(c *gin.Context) QueryParams {
 
 	search := strings.TrimSpace(c.Query("search"))
 
+	sort := strings.TrimSpace(c.Query("sort"))
+	sort = regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(sort, "")
+	if sort == "" {
+		sort = "id" // Default sort field
+	}
+
+	order := strings.ToLower(strings.TrimSpace(c.Query("order")))
+	if order != "asc" && order != "desc" {
+		order = "desc" // Default sort order
+	}
+
 	return QueryParams{
 		Page:   page,
 		Limit:  limit,
 		Search: search,
+		Sort:   sort,
+		Order:  order,
 	}
 }
 

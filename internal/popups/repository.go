@@ -43,7 +43,7 @@ func (r *popupRepository) GetAll(params common.QueryParams) ([]Popup, int64, err
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit
-	err := db.Offset(offset).Limit(params.Limit).Find(&popups).Error
+	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&popups).Error
 
 	return popups, total, err
 }
@@ -71,7 +71,7 @@ func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryPara
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit
-	err := db.Offset(offset).Limit(params.Limit).Find(&popups).Error
+	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&popups).Error
 
 	return popups, total, err
 }
