@@ -48,14 +48,18 @@ func (wc *WebsiteController) Create(c *gin.Context) {
 // Get all websites
 func (wc *WebsiteController) List(c *gin.Context) {
 
-	websites, err := wc.service.GetAll()
+	params := common.GetQueryParams(c)
+
+	websites, total, err := wc.service.GetAll(params)
 
 	if err != nil {
 		common.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	common.Success(c, "Websites fetched successfully", MapWebsitesToResponse(websites))
+	pagination := common.BuildPagination(total, params)
+
+	common.SuccessWithPagination(c, "Websites fetched successfully", MapWebsitesToResponse(websites), pagination)
 }
 
 // Get website by id

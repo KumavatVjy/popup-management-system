@@ -3,12 +3,14 @@ package websites
 import (
 	"errors"
 	"strings"
+
+	"popup-manager-api/internal/common"
 )
 
 type WebsiteService interface {
 	Create(request CreateWebsiteRequest, createdBy uint) error
 
-	GetAll() ([]Website, error)
+	GetAll(params common.QueryParams) ([]Website, int64, error)
 
 	GetByID(id uint) (*Website, error)
 
@@ -78,9 +80,9 @@ func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) er
 	return s.repository.Create(&website)
 }
 
-func (s *websiteService) GetAll() ([]Website, error) {
+func (s *websiteService) GetAll(params common.QueryParams) ([]Website, int64, error) {
 
-	return s.repository.GetAll()
+	return s.repository.GetAll(params)
 
 }
 

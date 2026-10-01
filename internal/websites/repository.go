@@ -1,11 +1,15 @@
 package websites
 
-import "gorm.io/gorm"
+import (
+	"popup-manager-api/internal/common"
+
+	"gorm.io/gorm"
+)
 
 type WebsiteRepository interface {
 	Create(website *Website) error
 
-	GetAll() ([]Website, error)
+	GetAll(params common.QueryParams) ([]Website, int64, error)
 
 	GetByID(id uint) (*Website, error)
 
@@ -34,13 +38,18 @@ func (r *websiteRepository) Create(website *Website) error {
 }
 
 // GET ALL WEBSITES
-func (r *websiteRepository) GetAll() ([]Website, error) {
+func (r *websiteRepository) GetAll(params common.QueryParams) ([]Website, int64, error) {
 
 	var websites []Website
+	var total int64
 
-	err := r.db.Find(&websites).Error
+	db := r.db.Model(&Website{})
+	db.Count(&total)
 
-	return websites, err
+	offset := (params.Page - 1) * params.Limit
+	err := db.Offset(offset).Limit(params.Limit).Find(&websites).Error
+
+	return websites, total, err
 
 }
 
