@@ -43,6 +43,12 @@ func (s *popupService) Create(request CreatePopupRequest, createdBy uint) error 
 		return errors.New("invalid popup position")
 	}
 
+	if request.StartTime != nil && request.EndTime != nil {
+		if !request.StartTime.Before(*request.EndTime) {
+			return errors.New("start time must be before end time")
+		}
+	}
+
 	_, err := s.websiteRepository.GetByID(request.WebsiteID)
 	if err != nil {
 		return errors.New("website not found")
@@ -82,6 +88,12 @@ func (s *popupService) Update(id uint, request UpdatePopupRequest) error {
 
 	if !isValidPosition(request.Position) {
 		return errors.New("invalid popup position")
+	}
+
+	if request.StartTime != nil && request.EndTime != nil {
+		if !request.StartTime.Before(*request.EndTime) {
+			return errors.New("start time must be before end time")
+		}
 	}
 
 	popup.Title = strings.TrimSpace(request.Title)
