@@ -40,7 +40,16 @@ func (pc *PopupController) Create(c *gin.Context) {
 
 // Get all popups
 func (pc *PopupController) List(c *gin.Context) {
-	params := common.GetQueryParams(c)
+	allowedSorts := map[string]string{
+		"id":         "id",
+		"title":      "title",
+		"position":   "position",
+		"status":     "status",
+		"start_time": "start_time",
+		"end_time":   "end_time",
+		"created_at": "created_at",
+	}
+	params := common.GetQueryParams(c, allowedSorts)
 	popups, total, err := pc.service.GetAll(params)
 	if err != nil {
 		common.Error(c, http.StatusInternalServerError, err.Error())
@@ -61,7 +70,7 @@ func (pc *PopupController) GetByID(c *gin.Context) {
 
 	popup, err := pc.service.GetByID(uint(id))
 	if err != nil {
-		common.Error(c, http.StatusNotFound, "Popup not found")
+		common.HandleError(c, err)
 		return
 	}
 
@@ -76,7 +85,16 @@ func (pc *PopupController) GetByWebsiteID(c *gin.Context) {
 		return
 	}
 
-	params := common.GetQueryParams(c)
+	allowedSorts := map[string]string{
+		"id":         "id",
+		"title":      "title",
+		"position":   "position",
+		"status":     "status",
+		"start_time": "start_time",
+		"end_time":   "end_time",
+		"created_at": "created_at",
+	}
+	params := common.GetQueryParams(c, allowedSorts)
 	popups, total, err := pc.service.GetByWebsiteID(uint(websiteID), params)
 	if err != nil {
 		common.Error(c, http.StatusInternalServerError, err.Error())

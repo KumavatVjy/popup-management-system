@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 
+	"popup-manager-api/config"
 	"popup-manager-api/internal/users"
 	"popup-manager-api/utils"
 )
@@ -18,21 +19,34 @@ func SeedDatabase() {
 		return
 	}
 
-	password, err := utils.HashPassword("Admin@123")
+	adminEmail := config.GetEnv("ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = "admin@example.com"
+	}
 
+	adminPassword := config.GetEnv("ADMIN_PASSWORD")
+	if adminPassword == "" {
+		log.Println("ADMIN_PASSWORD not set. Seeder skipped.")
+		return
+	}
+
+	password, err := utils.HashPassword(adminPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	admin := users.User{
 		Name:     "Administrator",
-		Email:    "vijay.kumavat@definedge.com",
+		Email:    adminEmail,
 		Password: password,
 		Role:     "Super Admin",
 		Status:   true,
 	}
 
-	DB.Create(&admin)
+	if err := DB.Create(&admin).Error; err != nil {
+		log.Println("Failed to create default administrator:", err)
+		return
+	}
 
 	log.Println("Default administrator created successfully.")
 }

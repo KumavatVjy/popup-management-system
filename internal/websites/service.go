@@ -67,6 +67,11 @@ func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) er
 
 	vErr := common.NewValidationError()
 
+	websiteName := strings.TrimSpace(request.WebsiteName)
+	if websiteName == "" {
+		vErr.Add("website_name", "website name cannot be empty")
+	}
+
 	// Validate Platform
 	if !isValidPlatform(request.Platform) {
 		vErr.Add("platform", "invalid platform")
@@ -87,11 +92,11 @@ func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) er
 		return err
 	}
 	if existing != nil {
-		return errors.New("website domain already exists")
+		return common.ErrDuplicateDomain
 	}
 
 	website := Website{
-		WebsiteName: strings.TrimSpace(request.WebsiteName),
+		WebsiteName: websiteName,
 		Domain:      domain,
 		Platform:    request.Platform,
 		Status:      true,
@@ -123,6 +128,11 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 
 	vErr := common.NewValidationError()
 
+	websiteName := strings.TrimSpace(request.WebsiteName)
+	if websiteName == "" {
+		vErr.Add("website_name", "website name cannot be empty")
+	}
+
 	if !isValidPlatform(request.Platform) {
 		vErr.Add("platform", "invalid platform")
 	}
@@ -142,10 +152,10 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 		return err
 	}
 	if existing != nil && existing.ID != id {
-		return errors.New("website domain already exists")
+		return common.ErrDuplicateDomain
 	}
 
-	website.WebsiteName = strings.TrimSpace(request.WebsiteName)
+	website.WebsiteName = websiteName
 	website.Domain = domain
 	website.Platform = request.Platform
 	website.Status = request.Status

@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"errors"
 	"popup-manager-api/internal/common"
 
 	"gorm.io/gorm"
@@ -40,7 +41,9 @@ func (r *popupRepository) GetAll(params common.QueryParams) ([]Popup, int64, err
 		db = db.Where("title LIKE ? OR content LIKE ?", searchTerm, searchTerm)
 	}
 
-	db.Count(&total)
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
 	offset := (params.Page - 1) * params.Limit
 	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&popups).Error
@@ -52,6 +55,9 @@ func (r *popupRepository) GetByID(id uint) (*Popup, error) {
 	var popup Popup
 	err := r.db.First(&popup, id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.ErrNotFound
+		}
 		return nil, err
 	}
 	return &popup, nil
@@ -68,7 +74,9 @@ func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryPara
 		db = db.Where("title LIKE ? OR content LIKE ?", searchTerm, searchTerm)
 	}
 
-	db.Count(&total)
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
 	offset := (params.Page - 1) * params.Limit
 	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&popups).Error
@@ -81,5 +89,12 @@ func (r *popupRepository) Update(popup *Popup) error {
 }
 
 func (r *popupRepository) Delete(id uint) error {
-	return r.db.Delete(&Popup{}, id).Error
+	result := r.db.Delete(&Popup{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return common.ErrNotFound
+	}
+	return nil
 }

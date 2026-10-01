@@ -48,7 +48,17 @@ func (wc *WebsiteController) Create(c *gin.Context) {
 // Get all websites
 func (wc *WebsiteController) List(c *gin.Context) {
 
-	params := common.GetQueryParams(c)
+	allowedSorts := map[string]string{
+		"id":           "id",
+		"name":         "website_name",
+		"website_name": "website_name",
+		"domain":       "domain",
+		"created_at":   "created_at",
+		"platform":     "platform",
+		"status":       "status",
+	}
+
+	params := common.GetQueryParams(c, allowedSorts)
 
 	websites, total, err := wc.service.GetAll(params)
 
@@ -75,7 +85,7 @@ func (wc *WebsiteController) GetByID(c *gin.Context) {
 	website, err := wc.service.GetByID(uint(id))
 
 	if err != nil {
-		common.Error(c, http.StatusNotFound, "Website not found")
+		common.HandleError(c, err)
 		return
 	}
 

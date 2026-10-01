@@ -23,7 +23,7 @@ type Pagination struct {
 	TotalPages int   `json:"total_pages"`
 }
 
-func GetQueryParams(c *gin.Context) QueryParams {
+func GetQueryParams(c *gin.Context, allowedSortFields map[string]string) QueryParams {
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page <= 0 {
 		page = 1
@@ -32,25 +32,13 @@ func GetQueryParams(c *gin.Context) QueryParams {
 	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	if err != nil || limit <= 0 {
 		limit = 10
+	} else if limit > 100 {
+		limit = 100
 	}
 
 	search := strings.TrimSpace(c.Query("search"))
 
 	sort := strings.ToLower(strings.TrimSpace(c.Query("sort")))
-
-	allowedSortFields := map[string]string{
-		"id":           "id",
-		"name":         "website_name",
-		"website_name": "website_name",
-		"domain":       "domain",
-		"created_at":   "created_at",
-		"title":        "title",
-		"position":     "position",
-		"status":       "status",
-		"start_time":   "start_time",
-		"end_time":     "end_time",
-		"platform":     "platform",
-	}
 
 	if mappedSort, exists := allowedSortFields[sort]; exists {
 		sort = mappedSort

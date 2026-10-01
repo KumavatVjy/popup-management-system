@@ -1,7 +1,6 @@
 package popups
 
 import (
-	"errors"
 	"strings"
 
 	"popup-manager-api/internal/common"
@@ -41,6 +40,16 @@ func isValidPosition(position string) bool {
 func (s *popupService) Create(request CreatePopupRequest, createdBy uint) error {
 	vErr := common.NewValidationError()
 
+	title := strings.TrimSpace(request.Title)
+	if title == "" {
+		vErr.Add("title", "title cannot be empty")
+	}
+
+	content := strings.TrimSpace(request.Content)
+	if content == "" {
+		vErr.Add("content", "content cannot be empty")
+	}
+
 	if !isValidPosition(request.Position) {
 		vErr.Add("position", "invalid popup position")
 	}
@@ -57,13 +66,13 @@ func (s *popupService) Create(request CreatePopupRequest, createdBy uint) error 
 
 	_, err := s.websiteRepository.GetByID(request.WebsiteID)
 	if err != nil {
-		return errors.New("website not found")
+		return common.ErrNotFound
 	}
 
 	popup := Popup{
 		WebsiteID: request.WebsiteID,
-		Title:     strings.TrimSpace(request.Title),
-		Content:   strings.TrimSpace(request.Content),
+		Title:     title,
+		Content:   content,
 		Position:  request.Position,
 		Status:    request.Status,
 		StartTime: request.StartTime,
@@ -94,6 +103,16 @@ func (s *popupService) Update(id uint, request UpdatePopupRequest) error {
 
 	vErr := common.NewValidationError()
 
+	title := strings.TrimSpace(request.Title)
+	if title == "" {
+		vErr.Add("title", "title cannot be empty")
+	}
+
+	content := strings.TrimSpace(request.Content)
+	if content == "" {
+		vErr.Add("content", "content cannot be empty")
+	}
+
 	if !isValidPosition(request.Position) {
 		vErr.Add("position", "invalid popup position")
 	}
@@ -108,8 +127,8 @@ func (s *popupService) Update(id uint, request UpdatePopupRequest) error {
 		return vErr
 	}
 
-	popup.Title = strings.TrimSpace(request.Title)
-	popup.Content = strings.TrimSpace(request.Content)
+	popup.Title = title
+	popup.Content = content
 	popup.Position = request.Position
 	popup.Status = request.Status
 	popup.StartTime = request.StartTime

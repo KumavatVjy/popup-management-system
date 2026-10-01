@@ -1,6 +1,7 @@
 package websites
 
 import (
+	"errors"
 	"popup-manager-api/internal/common"
 
 	"gorm.io/gorm"
@@ -50,7 +51,9 @@ func (r *websiteRepository) GetAll(params common.QueryParams) ([]Website, int64,
 		db = db.Where("website_name LIKE ? OR domain LIKE ?", searchTerm, searchTerm)
 	}
 
-	db.Count(&total)
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
 	offset := (params.Page - 1) * params.Limit
 	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&websites).Error
@@ -67,6 +70,9 @@ func (r *websiteRepository) GetByID(id uint) (*Website, error) {
 	err := r.db.First(&website, id).Error
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -84,6 +90,9 @@ func (r *websiteRepository) GetByDomain(domain string) (*Website, error) {
 		First(&website).Error
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -100,6 +109,13 @@ func (r *websiteRepository) Update(website *Website) error {
 // DELETE WEBSITE
 func (r *websiteRepository) Delete(id uint) error {
 
-	return r.db.Delete(&Website{}, id).Error
+	result := r.db.Delete(&Website{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return common.ErrNotFound
+	}
+	return nil
 
 }

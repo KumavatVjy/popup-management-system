@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,13 +58,28 @@ func HandleError(c *gin.Context, err error) {
 		return
 	}
 
-	if err.Error() == "website domain already exists" {
+	if errors.Is(err, ErrDuplicateDomain) {
 		Error(c, http.StatusConflict, err.Error())
 		return
 	}
 
-	if err.Error() == "website not found" || err.Error() == "Popup not found" {
+	if errors.Is(err, ErrNotFound) {
 		Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// Legacy string comparison for fallback or custom controller errors
+	errMsg := err.Error()
+	if errMsg == "invalid credentials" || errMsg == "unauthorized" {
+		Error(c, http.StatusUnauthorized, errMsg)
+		return
+	}
+	if errMsg == "website not found" || errMsg == "Popup not found" {
+		Error(c, http.StatusNotFound, errMsg)
+		return
+	}
+	if errMsg == "website domain already exists" {
+		Error(c, http.StatusConflict, errMsg)
 		return
 	}
 
