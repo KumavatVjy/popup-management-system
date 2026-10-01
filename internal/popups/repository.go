@@ -34,6 +34,12 @@ func (r *popupRepository) GetAll(params common.QueryParams) ([]Popup, int64, err
 	var total int64
 
 	db := r.db.Model(&Popup{})
+
+	if params.Search != "" {
+		searchTerm := "%" + params.Search + "%"
+		db = db.Where("title LIKE ? OR content LIKE ?", searchTerm, searchTerm)
+	}
+
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit
@@ -56,6 +62,12 @@ func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryPara
 	var total int64
 
 	db := r.db.Model(&Popup{}).Where("website_id = ?", websiteID)
+
+	if params.Search != "" {
+		searchTerm := "%" + params.Search + "%"
+		db = db.Where("title LIKE ? OR content LIKE ?", searchTerm, searchTerm)
+	}
+
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit

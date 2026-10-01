@@ -3,13 +3,15 @@ package common
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type QueryParams struct {
-	Page  int
-	Limit int
+	Page   int
+	Limit  int
+	Search string
 }
 
 type Pagination struct {
@@ -30,9 +32,12 @@ func GetQueryParams(c *gin.Context) QueryParams {
 		limit = 10
 	}
 
+	search := strings.TrimSpace(c.Query("search"))
+
 	return QueryParams{
-		Page:  page,
-		Limit: limit,
+		Page:   page,
+		Limit:  limit,
+		Search: search,
 	}
 }
 

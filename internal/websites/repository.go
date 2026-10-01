@@ -44,6 +44,12 @@ func (r *websiteRepository) GetAll(params common.QueryParams) ([]Website, int64,
 	var total int64
 
 	db := r.db.Model(&Website{})
+
+	if params.Search != "" {
+		searchTerm := "%" + params.Search + "%"
+		db = db.Where("website_name LIKE ? OR domain LIKE ?", searchTerm, searchTerm)
+	}
+
 	db.Count(&total)
 
 	offset := (params.Page - 1) * params.Limit
