@@ -46,7 +46,7 @@ func (pc *PopupController) List(c *gin.Context) {
 		return
 	}
 
-	common.Success(c, "Popups fetched successfully", popups)
+	common.Success(c, "Popups fetched successfully", MapPopupsToResponse(popups))
 }
 
 // Get popup by ID
@@ -63,7 +63,7 @@ func (pc *PopupController) GetByID(c *gin.Context) {
 		return
 	}
 
-	common.Success(c, "Popup fetched successfully", popup)
+	common.Success(c, "Popup fetched successfully", MapPopupToResponse(*popup))
 }
 
 // Get popups by website ID
@@ -80,7 +80,7 @@ func (pc *PopupController) GetByWebsiteID(c *gin.Context) {
 		return
 	}
 
-	common.Success(c, "Popups fetched successfully", popups)
+	common.Success(c, "Popups fetched successfully", MapPopupsToResponse(popups))
 }
 
 // Update popup by ID

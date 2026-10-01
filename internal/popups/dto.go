@@ -20,3 +20,35 @@ type UpdatePopupRequest struct {
 	StartTime *time.Time `json:"start_time"`
 	EndTime   *time.Time `json:"end_time"`
 }
+
+type PopupResponse struct {
+	ID        uint       `json:"id"`
+	WebsiteID uint       `json:"website_id"`
+	Title     string     `json:"title"`
+	Content   string     `json:"content"`
+	Position  string     `json:"position"`
+	Status    bool       `json:"status"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
+}
+
+func MapPopupToResponse(p Popup) PopupResponse {
+	return PopupResponse{
+		ID:        p.ID,
+		WebsiteID: p.WebsiteID,
+		Title:     p.Title,
+		Content:   p.Content,
+		Position:  p.Position,
+		Status:    p.Status,
+		StartTime: p.StartTime,
+		EndTime:   p.EndTime,
+	}
+}
+
+func MapPopupsToResponse(popups []Popup) []PopupResponse {
+	var responses []PopupResponse
+	for _, p := range popups {
+		responses = append(responses, MapPopupToResponse(p))
+	}
+	return responses
+}

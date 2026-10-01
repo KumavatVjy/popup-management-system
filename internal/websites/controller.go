@@ -55,7 +55,7 @@ func (wc *WebsiteController) List(c *gin.Context) {
 		return
 	}
 
-	common.Success(c, "Websites fetched successfully", websites)
+	common.Success(c, "Websites fetched successfully", MapWebsitesToResponse(websites))
 }
 
 // Get website by id
@@ -75,7 +75,7 @@ func (wc *WebsiteController) GetByID(c *gin.Context) {
 		return
 	}
 
-	common.Success(c, "Website fetched successfully", website)
+	common.Success(c, "Website fetched successfully", MapWebsiteToResponse(*website))
 }
 
 // Update website by ID
