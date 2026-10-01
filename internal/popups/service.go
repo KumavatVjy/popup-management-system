@@ -4,14 +4,15 @@ import (
 	"errors"
 	"strings"
 
+	"popup-manager-api/internal/common"
 	"popup-manager-api/internal/websites"
 )
 
 type PopupService interface {
 	Create(request CreatePopupRequest, createdBy uint) error
-	GetAll() ([]Popup, error)
+	GetAll(params common.QueryParams) ([]Popup, int64, error)
 	GetByID(id uint) (*Popup, error)
-	GetByWebsiteID(websiteID uint) ([]Popup, error)
+	GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error)
 	Update(id uint, request UpdatePopupRequest) error
 	Delete(id uint) error
 }
@@ -61,16 +62,16 @@ func (s *popupService) Create(request CreatePopupRequest, createdBy uint) error 
 	return s.repository.Create(&popup)
 }
 
-func (s *popupService) GetAll() ([]Popup, error) {
-	return s.repository.GetAll()
+func (s *popupService) GetAll(params common.QueryParams) ([]Popup, int64, error) {
+	return s.repository.GetAll(params)
 }
 
 func (s *popupService) GetByID(id uint) (*Popup, error) {
 	return s.repository.GetByID(id)
 }
 
-func (s *popupService) GetByWebsiteID(websiteID uint) ([]Popup, error) {
-	return s.repository.GetByWebsiteID(websiteID)
+func (s *popupService) GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error) {
+	return s.repository.GetByWebsiteID(websiteID, params)
 }
 
 func (s *popupService) Update(id uint, request UpdatePopupRequest) error {

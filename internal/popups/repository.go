@@ -1,12 +1,16 @@
 package popups
 
-import "gorm.io/gorm"
+import (
+	"popup-manager-api/internal/common"
+
+	"gorm.io/gorm"
+)
 
 type PopupRepository interface {
 	Create(popup *Popup) error
-	GetAll() ([]Popup, error)
+	GetAll(params common.QueryParams) ([]Popup, int64, error)
 	GetByID(id uint) (*Popup, error)
-	GetByWebsiteID(websiteID uint) ([]Popup, error)
+	GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error)
 	Update(popup *Popup) error
 	Delete(id uint) error
 }
@@ -25,10 +29,17 @@ func (r *popupRepository) Create(popup *Popup) error {
 	return r.db.Create(popup).Error
 }
 
-func (r *popupRepository) GetAll() ([]Popup, error) {
+func (r *popupRepository) GetAll(params common.QueryParams) ([]Popup, int64, error) {
 	var popups []Popup
-	err := r.db.Find(&popups).Error
-	return popups, err
+	var total int64
+
+	db := r.db.Model(&Popup{})
+	db.Count(&total)
+
+	offset := (params.Page - 1) * params.Limit
+	err := db.Offset(offset).Limit(params.Limit).Find(&popups).Error
+
+	return popups, total, err
 }
 
 func (r *popupRepository) GetByID(id uint) (*Popup, error) {
@@ -40,10 +51,17 @@ func (r *popupRepository) GetByID(id uint) (*Popup, error) {
 	return &popup, nil
 }
 
-func (r *popupRepository) GetByWebsiteID(websiteID uint) ([]Popup, error) {
+func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error) {
 	var popups []Popup
-	err := r.db.Where("website_id = ?", websiteID).Find(&popups).Error
-	return popups, err
+	var total int64
+
+	db := r.db.Model(&Popup{}).Where("website_id = ?", websiteID)
+	db.Count(&total)
+
+	offset := (params.Page - 1) * params.Limit
+	err := db.Offset(offset).Limit(params.Limit).Find(&popups).Error
+
+	return popups, total, err
 }
 
 func (r *popupRepository) Update(popup *Popup) error {

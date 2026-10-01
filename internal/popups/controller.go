@@ -40,13 +40,15 @@ func (pc *PopupController) Create(c *gin.Context) {
 
 // Get all popups
 func (pc *PopupController) List(c *gin.Context) {
-	popups, err := pc.service.GetAll()
+	params := common.GetQueryParams(c)
+	popups, total, err := pc.service.GetAll(params)
 	if err != nil {
 		common.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	common.Success(c, "Popups fetched successfully", MapPopupsToResponse(popups))
+	pagination := common.BuildPagination(total, params)
+	common.SuccessWithPagination(c, "Popups fetched successfully", MapPopupsToResponse(popups), pagination)
 }
 
 // Get popup by ID
@@ -74,13 +76,15 @@ func (pc *PopupController) GetByWebsiteID(c *gin.Context) {
 		return
 	}
 
-	popups, err := pc.service.GetByWebsiteID(uint(websiteID))
+	params := common.GetQueryParams(c)
+	popups, total, err := pc.service.GetByWebsiteID(uint(websiteID), params)
 	if err != nil {
 		common.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	common.Success(c, "Popups fetched successfully", MapPopupsToResponse(popups))
+	pagination := common.BuildPagination(total, params)
+	common.SuccessWithPagination(c, "Popups fetched successfully", MapPopupsToResponse(popups), pagination)
 }
 
 // Update popup by ID
