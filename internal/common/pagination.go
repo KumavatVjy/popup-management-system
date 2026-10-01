@@ -2,7 +2,6 @@ package common
 
 import (
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -37,10 +36,26 @@ func GetQueryParams(c *gin.Context) QueryParams {
 
 	search := strings.TrimSpace(c.Query("search"))
 
-	sort := strings.TrimSpace(c.Query("sort"))
-	sort = regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(sort, "")
-	if sort == "" {
-		sort = "id" // Default sort field
+	sort := strings.ToLower(strings.TrimSpace(c.Query("sort")))
+
+	allowedSortFields := map[string]string{
+		"id":           "id",
+		"name":         "website_name",
+		"website_name": "website_name",
+		"domain":       "domain",
+		"created_at":   "created_at",
+		"title":        "title",
+		"position":     "position",
+		"status":       "status",
+		"start_time":   "start_time",
+		"end_time":     "end_time",
+		"platform":     "platform",
+	}
+
+	if mappedSort, exists := allowedSortFields[sort]; exists {
+		sort = mappedSort
+	} else {
+		sort = "id" // Default sort field if missing or invalid
 	}
 
 	order := strings.ToLower(strings.TrimSpace(c.Query("order")))
