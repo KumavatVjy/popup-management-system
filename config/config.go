@@ -90,14 +90,3 @@ func getEnv(key, fallback string) string {
 	}
 	return fallback
 }
-
-// Deprecated: retrieve values anywhere in the application
-func GetEnv(key string) string {
-	return os.Getenv(key)
-}
-
-func LoadEnv() {
-	if err := godotenv.Load(); err != nil {
-		// Just log or ignore
-	}
-}

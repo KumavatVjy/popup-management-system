@@ -33,7 +33,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		claims, err := utils.ValidateJWT(
 			token,
-			config.GetEnv("JWT_SECRET"),
+			config.AppConfig.JWTSecret,
 		)
 
 		if err != nil {

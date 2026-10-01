@@ -19,12 +19,12 @@ func SeedDatabase() {
 		return
 	}
 
-	adminEmail := config.GetEnv("ADMIN_EMAIL")
+	adminEmail := config.AppConfig.AdminEmail
 	if adminEmail == "" {
 		adminEmail = "admin@example.com"
 	}
 
-	adminPassword := config.GetEnv("ADMIN_PASSWORD")
+	adminPassword := config.AppConfig.AdminPassword
 	if adminPassword == "" {
 		log.Println("ADMIN_PASSWORD not set. Seeder skipped.")
 		return

@@ -2,7 +2,6 @@ package users
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -44,27 +43,13 @@ func (uc *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	// Get JWT expiry configuration
-	expireHours, err := strconv.Atoi(
-		config.GetEnv("JWT_EXPIRE_HOURS"),
-	)
-
-	if err != nil {
-		common.Error(
-			c,
-			http.StatusInternalServerError,
-			"Invalid JWT configuration",
-		)
-		return
-	}
-
 	// Generate JWT
 	token, err := utils.GenerateJWT(
 		user.ID,
 		user.Email,
 		user.Role,
-		config.GetEnv("JWT_SECRET"),
-		expireHours,
+		config.AppConfig.JWTSecret,
+		config.AppConfig.JWTExpireHours,
 	)
 
 	if err != nil {
