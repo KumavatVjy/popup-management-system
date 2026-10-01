@@ -31,7 +31,7 @@ func (pc *PopupController) Create(c *gin.Context) {
 
 	err := pc.service.Create(request, createdBy)
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (pc *PopupController) Update(c *gin.Context) {
 
 	err = pc.service.Update(uint(id), request)
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (pc *PopupController) Delete(c *gin.Context) {
 
 	err = pc.service.Delete(uint(id))
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 

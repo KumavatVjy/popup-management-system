@@ -65,14 +65,20 @@ func isValidPlatform(platform string) bool {
 
 func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) error {
 
+	vErr := common.NewValidationError()
+
 	// Validate Platform
 	if !isValidPlatform(request.Platform) {
-		return errors.New("invalid platform")
+		vErr.Add("platform", "invalid platform")
 	}
 
 	domain := strings.ToLower(strings.TrimSpace(request.Domain))
 	if !isValidDomain(domain) {
-		return errors.New("invalid domain format")
+		vErr.Add("domain", "invalid domain format")
+	}
+
+	if vErr.HasErrors() {
+		return vErr
 	}
 
 	// Check duplicate domain
@@ -115,13 +121,19 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 		return err
 	}
 
+	vErr := common.NewValidationError()
+
 	if !isValidPlatform(request.Platform) {
-		return errors.New("invalid platform")
+		vErr.Add("platform", "invalid platform")
 	}
 
 	domain := strings.ToLower(strings.TrimSpace(request.Domain))
 	if !isValidDomain(domain) {
-		return errors.New("invalid domain format")
+		vErr.Add("domain", "invalid domain format")
+	}
+
+	if vErr.HasErrors() {
+		return vErr
 	}
 
 	// Check duplicate domain for update

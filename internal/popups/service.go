@@ -39,14 +39,20 @@ func isValidPosition(position string) bool {
 }
 
 func (s *popupService) Create(request CreatePopupRequest, createdBy uint) error {
+	vErr := common.NewValidationError()
+
 	if !isValidPosition(request.Position) {
-		return errors.New("invalid popup position")
+		vErr.Add("position", "invalid popup position")
 	}
 
 	if request.StartTime != nil && request.EndTime != nil {
 		if !request.StartTime.Before(*request.EndTime) {
-			return errors.New("start time must be before end time")
+			vErr.Add("start_time", "start time must be before end time")
 		}
+	}
+
+	if vErr.HasErrors() {
+		return vErr
 	}
 
 	_, err := s.websiteRepository.GetByID(request.WebsiteID)
@@ -86,14 +92,20 @@ func (s *popupService) Update(id uint, request UpdatePopupRequest) error {
 		return err
 	}
 
+	vErr := common.NewValidationError()
+
 	if !isValidPosition(request.Position) {
-		return errors.New("invalid popup position")
+		vErr.Add("position", "invalid popup position")
 	}
 
 	if request.StartTime != nil && request.EndTime != nil {
 		if !request.StartTime.Before(*request.EndTime) {
-			return errors.New("start time must be before end time")
+			vErr.Add("start_time", "start time must be before end time")
 		}
+	}
+
+	if vErr.HasErrors() {
+		return vErr
 	}
 
 	popup.Title = strings.TrimSpace(request.Title)

@@ -38,7 +38,7 @@ func (wc *WebsiteController) Create(c *gin.Context) {
 	err := wc.service.Create(request, createdBy)
 
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (wc *WebsiteController) Update(c *gin.Context) {
 	err = wc.service.Update(uint(id), request)
 
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (wc *WebsiteController) Delete(c *gin.Context) {
 	err = wc.service.Delete(uint(id))
 
 	if err != nil {
-		common.Error(c, http.StatusBadRequest, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
