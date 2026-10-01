@@ -1,20 +1,23 @@
 package main
 
 import (
+	"log"
+
 	"popup-manager-api/config"
 	"popup-manager-api/database"
-	"popup-manager-api/internal/users"
-	"popup-manager-api/routes"
-
 	"popup-manager-api/internal/popups"
+	"popup-manager-api/internal/users"
 	"popup-manager-api/internal/websites"
+	"popup-manager-api/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() { // entry point like index.php
 
-	config.LoadEnv() //
+	if err := config.Load(); err != nil {
+		log.Fatalf("Failed to initialize configuration: %v", err)
+	}
 	database.ConnectDatabase()
 	database.MigrateDatabase()
 	database.SeedDatabase()
@@ -42,5 +45,5 @@ func main() { // entry point like index.php
 	}
 
 	routes.SetupRoutes(router, controllers)
-	router.Run(":" + config.GetEnv("APP_PORT")) // this start the server
+	router.Run(":" + config.AppConfig.AppPort) // this start the server
 }
