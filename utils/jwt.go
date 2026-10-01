@@ -30,7 +30,6 @@ func GenerateJWT(userID uint, email, role, secret string, expireHours int) (stri
 	return token.SignedString([]byte(secret))
 }
 
-
 func ValidateJWT(tokenString, secret string) (*JWTClaims, error) {
 
 	token, err := jwt.ParseWithClaims(

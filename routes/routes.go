@@ -1,14 +1,16 @@
 package routes
 
 import (
-	"popup-manager-api/internal/users"
-    "popup-manager-api/internal/websites"
 	"github.com/gin-gonic/gin"
+	"popup-manager-api/internal/popups"
+	"popup-manager-api/internal/users"
+	"popup-manager-api/internal/websites"
 )
 
 type Controllers struct {
-	User *users.UserController
+	User    *users.UserController
 	Website *websites.WebsiteController
+	Popup   *popups.PopupController
 }
 
 func SetupRoutes(router *gin.Engine, controllers *Controllers) {
@@ -20,6 +22,8 @@ func SetupRoutes(router *gin.Engine, controllers *Controllers) {
 	users.RegisterRoutes(v1, controllers.User)
 
 	websites.RegisterRoutes(v1, controllers.Website)
+
+	popups.RegisterRoutes(v1, controllers.Popup)
 
 	router.GET("/", func(c *gin.Context) {
 

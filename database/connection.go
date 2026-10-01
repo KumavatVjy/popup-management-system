@@ -2,10 +2,10 @@ package database
 
 import (
 	"fmt"
-	"log"
-	"popup-manager-api/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"log"
+	"popup-manager-api/config"
 )
 
 var DB *gorm.DB

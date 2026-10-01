@@ -34,7 +34,7 @@ func (wc *WebsiteController) Create(c *gin.Context) {
 	// Logged-in User ID from JWT Middleware
 	createdBy := c.GetUint("user_id")
 
-	// Call Service 
+	// Call Service
 	err := wc.service.Create(request, createdBy)
 
 	if err != nil {
@@ -58,7 +58,6 @@ func (wc *WebsiteController) List(c *gin.Context) {
 	common.Success(c, "Websites fetched successfully", websites)
 }
 
-
 // Get website by id
 func (wc *WebsiteController) GetByID(c *gin.Context) {
 
@@ -79,7 +78,7 @@ func (wc *WebsiteController) GetByID(c *gin.Context) {
 	common.Success(c, "Website fetched successfully", website)
 }
 
-// Update website by ID 
+// Update website by ID
 func (wc *WebsiteController) Update(c *gin.Context) {
 
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -106,7 +105,7 @@ func (wc *WebsiteController) Update(c *gin.Context) {
 	common.Success(c, "Website updated successfully", nil)
 }
 
-// Delete website by ID 
+// Delete website by ID
 func (wc *WebsiteController) Delete(c *gin.Context) {
 
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

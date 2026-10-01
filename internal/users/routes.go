@@ -13,7 +13,6 @@ func RegisterRoutes(router *gin.RouterGroup, controller *UserController) {
 	// Protected routes
 	// router.GET("/profile", middleware.AuthMiddleware(), controller.Profile)
 
-
 	auth := router.Group("/")
 
 	auth.Use(middleware.AuthMiddleware())

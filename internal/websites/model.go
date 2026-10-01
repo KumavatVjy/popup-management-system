@@ -3,22 +3,20 @@ package websites
 import "gorm.io/gorm"
 
 const (
-		PlatformWordPress = "WordPress"
-		PlatformReact     = "React"
-		PlatformPython    = "Python"
-		PlatformLaravel   = "Laravel"
-		PlatformJava    = "Java"
-		PlatformVue    = "VueJS"
-		PlatformGo   = "Go"
-		PlatformNodeJS    = "NodeJS"
-		PlatformHTML      = "HTML"
-		PlatformOther     = "Other"
-	)
+	PlatformWordPress = "WordPress"
+	PlatformReact     = "React"
+	PlatformPython    = "Python"
+	PlatformLaravel   = "Laravel"
+	PlatformJava      = "Java"
+	PlatformVue       = "VueJS"
+	PlatformGo        = "Go"
+	PlatformNodeJS    = "NodeJS"
+	PlatformHTML      = "HTML"
+	PlatformOther     = "Other"
+)
 
 type Website struct {
 	gorm.Model
-
-	
 
 	WebsiteName string `gorm:"size:150;not null" json:"website_name"`
 

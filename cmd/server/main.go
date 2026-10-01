@@ -6,16 +6,16 @@ import (
 	"popup-manager-api/internal/users"
 	"popup-manager-api/routes"
 
+	"popup-manager-api/internal/popups"
 	"popup-manager-api/internal/websites"
-
 
 	"github.com/gin-gonic/gin"
 )
 
-func main() {  // entry point like index.php
+func main() { // entry point like index.php
 
-	config.LoadEnv() // 
-    database.ConnectDatabase()
+	config.LoadEnv() //
+	database.ConnectDatabase()
 	database.MigrateDatabase()
 	database.SeedDatabase()
 	router := gin.Default() // create HTTP server , router receive every incoming request
@@ -30,9 +30,15 @@ func main() {  // entry point like index.php
 	websiteService := websites.NewWebsiteService(websiteRepository)
 	websiteController := websites.NewWebsiteController(websiteService)
 
+	// Popup Module
+	popupRepository := popups.NewPopupRepository(database.DB)
+	popupService := popups.NewPopupService(popupRepository, websiteRepository)
+	popupController := popups.NewPopupController(popupService)
+
 	controllers := &routes.Controllers{
-		User: userController,
-		Website:  websiteController,
+		User:    userController,
+		Website: websiteController,
+		Popup:   popupController,
 	}
 
 	routes.SetupRoutes(router, controllers)

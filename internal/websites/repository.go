@@ -3,7 +3,6 @@ package websites
 import "gorm.io/gorm"
 
 type WebsiteRepository interface {
-
 	Create(website *Website) error
 
 	GetAll() ([]Website, error)
@@ -27,7 +26,7 @@ func NewWebsiteRepository(db *gorm.DB) WebsiteRepository {
 	}
 }
 
-// CREATE 
+// CREATE
 func (r *websiteRepository) Create(website *Website) error {
 
 	return r.db.Create(website).Error
@@ -45,7 +44,7 @@ func (r *websiteRepository) GetAll() ([]Website, error) {
 
 }
 
-//GET WEBSITE BY ID
+// GET WEBSITE BY ID
 func (r *websiteRepository) GetByID(id uint) (*Website, error) {
 
 	var website Website
@@ -76,14 +75,14 @@ func (r *websiteRepository) GetByDomain(domain string) (*Website, error) {
 	return &website, nil
 }
 
-//UPDATE WEBSITE
+// UPDATE WEBSITE
 func (r *websiteRepository) Update(website *Website) error {
 
 	return r.db.Save(website).Error
 
 }
 
-//DELETE WEBSITE
+// DELETE WEBSITE
 func (r *websiteRepository) Delete(id uint) error {
 
 	return r.db.Delete(&Website{}, id).Error

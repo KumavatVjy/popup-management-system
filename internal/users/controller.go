@@ -30,21 +30,35 @@ func (uc *UserController) Login(c *gin.Context) {
 
 	var request LoginRequest
 
+	// Bind and validate request
 	if err := c.ShouldBindJSON(&request); err != nil {
-
-		common.Error(c, http.StatusBadRequest, "Invalid request body")
-
+		common.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	// Authenticate user
 	user, err := uc.Service.Login(request.Email, request.Password)
 
-	expireHours, err := strconv.Atoi(config.GetEnv("JWT_EXPIRE_HOURS"))
-
 	if err != nil {
-		expireHours = 24
+		common.Error(c, http.StatusUnauthorized, err.Error())
+		return
 	}
 
+	// Get JWT expiry configuration
+	expireHours, err := strconv.Atoi(
+		config.GetEnv("JWT_EXPIRE_HOURS"),
+	)
+
+	if err != nil {
+		common.Error(
+			c,
+			http.StatusInternalServerError,
+			"Invalid JWT configuration",
+		)
+		return
+	}
+
+	// Generate JWT
 	token, err := utils.GenerateJWT(
 		user.ID,
 		user.Email,
@@ -54,16 +68,15 @@ func (uc *UserController) Login(c *gin.Context) {
 	)
 
 	if err != nil {
-		common.Error(c, http.StatusInternalServerError, "Failed to generate token")
+		common.Error(
+			c,
+			http.StatusInternalServerError,
+			"Failed to generate authentication token",
+		)
 		return
 	}
 
-	if err != nil {
-
-		common.Error(c, http.StatusUnauthorized, err.Error())
-		return
-	}
-
+	// Return successful login response
 	common.Success(c, "Login successful", gin.H{
 		"token": token,
 		"user": gin.H{
@@ -74,7 +87,6 @@ func (uc *UserController) Login(c *gin.Context) {
 		},
 	})
 }
-
 
 func (uc *UserController) Profile(c *gin.Context) {
 

@@ -6,7 +6,6 @@ import (
 )
 
 type WebsiteService interface {
-
 	Create(request CreateWebsiteRequest, createdBy uint) error
 
 	GetAll() ([]Website, error)
@@ -30,7 +29,6 @@ func NewWebsiteService(repository WebsiteRepository) WebsiteService {
 
 }
 
-
 func isValidPlatform(platform string) bool {
 
 	switch platform {
@@ -41,6 +39,9 @@ func isValidPlatform(platform string) bool {
 		PlatformLaravel,
 		PlatformNodeJS,
 		PlatformHTML,
+		PlatformJava,
+		PlatformVue,
+		PlatformGo,
 		PlatformOther:
 
 		return true
@@ -51,7 +52,6 @@ func isValidPlatform(platform string) bool {
 	}
 
 }
-
 
 func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) error {
 
@@ -113,4 +113,3 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 func (s *websiteService) Delete(id uint) error {
 	return s.repository.Delete(id)
 }
-

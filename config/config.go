@@ -1,14 +1,14 @@
 package config
 
 import (
+	"github.com/joho/godotenv"
 	"log"
 	"os"
-	"github.com/joho/godotenv"
 )
+
 // Loads the .env file into memory.
-func LoadEnv(){
-	if err:= godotenv.Load(); 
-	err != nil{
+func LoadEnv() {
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 }
@@ -17,5 +17,3 @@ func LoadEnv(){
 func GetEnv(key string) string {
 	return os.Getenv(key)
 }
-
-
