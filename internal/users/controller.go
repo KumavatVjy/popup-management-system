@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"popup-manager-api/config"
 	"popup-manager-api/internal/common"
 	"popup-manager-api/utils"
 )
@@ -48,8 +47,6 @@ func (uc *UserController) Login(c *gin.Context) {
 		user.ID,
 		user.Email,
 		user.Role,
-		config.AppConfig.JWTSecret,
-		config.AppConfig.JWTExpireHours,
 	)
 
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"popup-manager-api/config"
 	"popup-manager-api/internal/common"
 	"popup-manager-api/utils"
 
@@ -33,7 +32,6 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		claims, err := utils.ValidateJWT(
 			token,
-			config.AppConfig.JWTSecret,
 		)
 
 		if err != nil {
