@@ -1,0 +1,1421 @@
+openapi: 3.0.3
+info:
+  title: Popup Management System API
+  version: 1.0.0
+  description: Central API for managing websites and popups.
+servers:
+  - url: http://localhost:8082
+    description: Local development server
+tags:
+  - name: System
+    description: System and health information endpoints
+  - name: Authentication
+    description: User authentication and identity endpoints
+  - name: Websites
+    description: Website management and platform configuration endpoints
+  - name: Popups
+    description: Popup management, scheduling, and placement endpoints
+
+paths:
+  /:
+    get:
+      tags:
+        - System
+      summary: Root API information
+      description: Returns service metadata and API version.
+      operationId: getSystemInfo
+      responses:
+        '200':
+          description: Service information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfoResponse'
+              example:
+                success: true
+                message: "Popup Management API"
+                version: "v1"
+
+  /api/v1/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate administrator
+      description: Authenticates an administrator using email and password, issuing a signed JWT access token.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "admin@example.com"
+              password: "Password123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                success: true
+                message: "Login successful"
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    id: 1
+                    name: "Administrator"
+                    email: "admin@example.com"
+                    role: "Super Admin"
+        '400':
+          description: Invalid request payload syntax or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "invalid credentials"
+        '500':
+          description: Server failed to generate JWT authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Failed to generate authentication token"
+
+  /api/v1/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get current administrator profile
+      description: Returns identity and role claims decoded from the authenticated caller's JWT token.
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                success: true
+                message: "Profile fetched successfully"
+                data:
+                  user_id: 1
+                  email: "admin@example.com"
+                  role: "Super Admin"
+        '401':
+          description: Missing, invalid, or expired authorization token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingHeader:
+                  summary: Missing authorization header
+                  value:
+                    success: false
+                    message: "Authorization header is required"
+                invalidFormat:
+                  summary: Malformed header format
+                  value:
+                    success: false
+                    message: "Invalid authorization format"
+                invalidToken:
+                  summary: Invalid or expired token
+                  value:
+                    success: false
+                    message: "Invalid or expired token"
+
+  /api/v1/websites:
+    post:
+      tags:
+        - Websites
+      summary: Register a new website
+      description: Creates a new client website record associated with the authenticated administrator.
+      operationId: createWebsite
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebsiteRequest'
+            example:
+              website_name: "Acme Store"
+              domain: "acme.example.com"
+              platform: "React"
+      responses:
+        '200':
+          description: Website registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Website created successfully"
+        '400':
+          description: Missing or malformed required JSON fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Key: 'CreateWebsiteRequest.WebsiteName' Error:Field validation for 'WebsiteName' failed on the 'required' tag"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid or expired token"
+        '409':
+          description: Website domain already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "website domain already exists"
+        '422':
+          description: Validation failure on website fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                success: false
+                message: "Validation failed"
+                errors:
+                  platform: "invalid platform"
+                  domain: "invalid domain format"
+
+    get:
+      tags:
+        - Websites
+      summary: List websites
+      description: Returns a paginated list of websites with optional substring search and sorting.
+      operationId: listWebsites
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/WebsiteSortQuery'
+        - $ref: '#/components/parameters/OrderQuery'
+      responses:
+        '200':
+          description: Websites list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWebsitesResponse'
+              example:
+                success: true
+                message: "Websites fetched successfully"
+                data:
+                  - id: 1
+                    website_name: "Acme Store"
+                    domain: "acme.example.com"
+                    platform: "React"
+                    status: true
+                pagination:
+                  page: 1
+                  limit: 10
+                  total: 1
+                  total_pages: 1
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "internal server error"
+
+  /api/v1/websites/{id}:
+    get:
+      tags:
+        - Websites
+      summary: Get website by ID
+      description: Returns detailed configuration of a specific website by its unique ID.
+      operationId: getWebsiteById
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WebsiteIdParam'
+      responses:
+        '200':
+          description: Website fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleWebsiteResponse'
+              example:
+                success: true
+                message: "Website fetched successfully"
+                data:
+                  id: 1
+                  website_name: "Acme Store"
+                  domain: "acme.example.com"
+                  platform: "React"
+                  status: true
+        '400':
+          description: Non-numeric or invalid website ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid website ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Website not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+
+    put:
+      tags:
+        - Websites
+      summary: Update website
+      description: Updates the configuration, platform, domain, or status of an existing website.
+      operationId: updateWebsite
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WebsiteIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWebsiteRequest'
+            example:
+              website_name: "Acme Global Store"
+              domain: "acme-global.example.com"
+              platform: "React"
+              status: true
+      responses:
+        '200':
+          description: Website updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Website updated successfully"
+        '400':
+          description: Invalid website ID or missing required request fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid website ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Website not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+        '409':
+          description: Domain conflicts with another existing website
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "website domain already exists"
+        '422':
+          description: Business validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                success: false
+                message: "Validation failed"
+                errors:
+                  domain: "invalid domain format"
+
+    delete:
+      tags:
+        - Websites
+      summary: Delete website
+      description: Soft-deletes a website record by its unique ID.
+      operationId: deleteWebsite
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WebsiteIdParam'
+      responses:
+        '200':
+          description: Website deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Website deleted successfully"
+        '400':
+          description: Invalid website ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid website ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Website not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+
+  /api/v1/popups:
+    post:
+      tags:
+        - Popups
+      summary: Create a new popup
+      description: >
+        Creates a new popup associated with an existing website.
+        If both start_time and end_time are provided, start_time must be chronologically earlier than end_time.
+      operationId: createPopup
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePopupRequest'
+            example:
+              website_id: 1
+              title: "Spring Promotion"
+              content: "<p>Get 20% off with promo code SPRING20</p>"
+              position: "center"
+              status: true
+              start_time: "2026-04-01T00:00:00Z"
+              end_time: "2026-04-30T23:59:59Z"
+      responses:
+        '200':
+          description: Popup created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Popup created successfully"
+        '400':
+          description: Missing or malformed required JSON fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Key: 'CreatePopupRequest.Title' Error:Field validation for 'Title' failed on the 'required' tag"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Associated website ID not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+        '422':
+          description: Business validation failure (e.g. invalid position or start_time >= end_time)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                success: false
+                message: "Validation failed"
+                errors:
+                  start_time: "start time must be before end time"
+
+    get:
+      tags:
+        - Popups
+      summary: List all popups
+      description: Returns a paginated list of popups across all registered websites.
+      operationId: listPopups
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/PopupSortQuery'
+        - $ref: '#/components/parameters/OrderQuery'
+      responses:
+        '200':
+          description: Popups list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPopupsResponse'
+              example:
+                success: true
+                message: "Popups fetched successfully"
+                data:
+                  - id: 1
+                    website_id: 1
+                    title: "Spring Promotion"
+                    content: "<p>Get 20% off with promo code SPRING20</p>"
+                    position: "center"
+                    status: true
+                    start_time: "2026-04-01T00:00:00Z"
+                    end_time: "2026-04-30T23:59:59Z"
+                pagination:
+                  page: 1
+                  limit: 10
+                  total: 1
+                  total_pages: 1
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "internal server error"
+
+  /api/v1/popups/{id}:
+    get:
+      tags:
+        - Popups
+      summary: Get popup by ID
+      description: Returns detailed configuration of a specific popup.
+      operationId: getPopupById
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PopupIdParam'
+      responses:
+        '200':
+          description: Popup fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePopupResponse'
+              example:
+                success: true
+                message: "Popup fetched successfully"
+                data:
+                  id: 1
+                  website_id: 1
+                  title: "Spring Promotion"
+                  content: "<p>Get 20% off with promo code SPRING20</p>"
+                  position: "center"
+                  status: true
+                  start_time: "2026-04-01T00:00:00Z"
+                  end_time: "2026-04-30T23:59:59Z"
+        '400':
+          description: Non-numeric popup ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid popup ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Popup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+
+    put:
+      tags:
+        - Popups
+      summary: Update popup
+      description: >
+        Updates an existing popup.
+        Note: The associated website_id is immutable and cannot be reassigned via this endpoint.
+      operationId: updatePopup
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PopupIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePopupRequest'
+            example:
+              title: "Summer Promotion"
+              content: "<p>Summer discounts available now!</p>"
+              position: "top-banner"
+              status: true
+              start_time: null
+              end_time: null
+      responses:
+        '200':
+          description: Popup updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Popup updated successfully"
+        '400':
+          description: Invalid popup ID or missing required request fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid popup ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Popup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+        '422':
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                success: false
+                message: "Validation failed"
+                errors:
+                  start_time: "start time must be before end time"
+
+    delete:
+      tags:
+        - Popups
+      summary: Delete popup
+      description: Soft-deletes a popup record by its ID.
+      operationId: deletePopup
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PopupIdParam'
+      responses:
+        '200':
+          description: Popup deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+              example:
+                success: true
+                message: "Popup deleted successfully"
+        '400':
+          description: Invalid popup ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid popup ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Popup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+
+  /api/v1/popups/website/{website_id}:
+    get:
+      tags:
+        - Popups
+      summary: List popups for a specific website
+      description: Returns a paginated list of popups filtered by their associated website ID.
+      operationId: listPopupsByWebsiteId
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PopupWebsiteIdParam'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/PopupSortQuery'
+        - $ref: '#/components/parameters/OrderQuery'
+      responses:
+        '200':
+          description: Website popups retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPopupsResponse'
+              example:
+                success: true
+                message: "Popups fetched successfully"
+                data:
+                  - id: 1
+                    website_id: 1
+                    title: "Spring Promotion"
+                    content: "<p>Get 20% off with promo code SPRING20</p>"
+                    position: "center"
+                    status: true
+                    start_time: "2026-04-01T00:00:00Z"
+                    end_time: "2026-04-30T23:59:59Z"
+                pagination:
+                  page: 1
+                  limit: 10
+                  total: 1
+                  total_pages: 1
+        '400':
+          description: Non-numeric website ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid website ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "internal server error"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT access token obtained from /api/v1/login. Header format is 'Authorization: Bearer <token>'."
+
+  parameters:
+    PageQuery:
+      name: page
+      in: query
+      description: Page number to retrieve. Defaults to 1 if omitted, non-positive, or invalid.
+      required: false
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      example: 1
+
+    LimitQuery:
+      name: limit
+      in: query
+      description: Number of records per page. Defaults to 10 if omitted, non-positive, or invalid. Maximum capped at 100.
+      required: false
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+      example: 10
+
+    SearchQuery:
+      name: search
+      in: query
+      description: Substring match filter (LIKE %search%). Websites match against website_name and domain; popups match against title and content.
+      required: false
+      schema:
+        type: string
+      example: "welcome"
+
+    OrderQuery:
+      name: order
+      in: query
+      description: Sort direction. Accepts 'asc' or 'desc' (case-insensitive). Defaults to 'desc'.
+      required: false
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: desc
+      example: "desc"
+
+    WebsiteSortQuery:
+      name: sort
+      in: query
+      description: Field to sort websites by. Fallback is 'id' if omitted or invalid.
+      required: false
+      schema:
+        type: string
+        enum:
+          - id
+          - name
+          - website_name
+          - domain
+          - platform
+          - status
+          - created_at
+        default: id
+      example: "domain"
+
+    PopupSortQuery:
+      name: sort
+      in: query
+      description: Field to sort popups by. Fallback is 'id' if omitted or invalid.
+      required: false
+      schema:
+        type: string
+        enum:
+          - id
+          - title
+          - position
+          - status
+          - start_time
+          - end_time
+          - created_at
+        default: id
+      example: "created_at"
+
+    WebsiteIdParam:
+      name: id
+      in: path
+      required: true
+      description: Unique unsigned integer ID of the website
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 1
+
+    PopupIdParam:
+      name: id
+      in: path
+      required: true
+      description: Unique unsigned integer ID of the popup
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 1
+
+    PopupWebsiteIdParam:
+      name: website_id
+      in: path
+      required: true
+      description: Unique unsigned integer ID of the associated website
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 1
+
+  schemas:
+    SystemInfoResponse:
+      type: object
+      required:
+        - success
+        - message
+        - version
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Popup Management API"
+        version:
+          type: string
+          example: "v1"
+
+    StandardSuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Website created successfully"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "resource not found"
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - errors
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            start_time: "start time must be before end time"
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - total_pages
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          format: int64
+          example: 37
+        total_pages:
+          type: integer
+          example: 4
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        password:
+          type: string
+          format: password
+          example: "Password123!"
+
+    UserSummary:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Administrator"
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        role:
+          type: string
+          example: "Super Admin"
+
+    LoginData:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/UserSummary'
+
+    LoginResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Login successful"
+        data:
+          $ref: '#/components/schemas/LoginData'
+
+    ProfileData:
+      type: object
+      required:
+        - user_id
+        - email
+        - role
+      properties:
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        role:
+          type: string
+          example: "Super Admin"
+
+    ProfileResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Profile fetched successfully"
+        data:
+          $ref: '#/components/schemas/ProfileData'
+
+    PlatformEnum:
+      type: string
+      description: Supported website platform framework
+      enum:
+        - WordPress
+        - React
+        - Python
+        - Laravel
+        - NodeJS
+        - HTML
+        - Java
+        - VueJS
+        - Go
+        - Other
+      example: "WordPress"
+
+    CreateWebsiteRequest:
+      type: object
+      required:
+        - website_name
+        - domain
+        - platform
+      properties:
+        website_name:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "Acme Store"
+        domain:
+          type: string
+          pattern: '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+          example: "acme.example.com"
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+
+    UpdateWebsiteRequest:
+      type: object
+      required:
+        - website_name
+        - domain
+        - platform
+      properties:
+        website_name:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "Acme Global Store"
+        domain:
+          type: string
+          pattern: '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+          example: "acme-global.example.com"
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        status:
+          type: boolean
+          default: true
+          example: true
+
+    WebsiteResponse:
+      type: object
+      required:
+        - id
+        - website_name
+        - domain
+        - platform
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        website_name:
+          type: string
+          example: "Acme Store"
+        domain:
+          type: string
+          example: "acme.example.com"
+        platform:
+          type: string
+          example: "React"
+        status:
+          type: boolean
+          example: true
+
+    SingleWebsiteResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Website fetched successfully"
+        data:
+          $ref: '#/components/schemas/WebsiteResponse'
+
+    PaginatedWebsitesResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - pagination
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Websites fetched successfully"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebsiteResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PopupPositionEnum:
+      type: string
+      description: Supported popup screen placement
+      enum:
+        - center
+        - top-banner
+        - bottom-left
+        - bottom-right
+      example: "center"
+
+    CreatePopupRequest:
+      type: object
+      required:
+        - website_id
+        - title
+        - content
+        - position
+      properties:
+        website_id:
+          type: integer
+          format: int64
+          description: ID of an existing website
+          example: 1
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: "Spring Promotion"
+        content:
+          type: string
+          description: HTML or text content of the popup
+          example: "<p>Get 20% off with promo code SPRING20</p>"
+        position:
+          $ref: '#/components/schemas/PopupPositionEnum'
+        status:
+          type: boolean
+          default: true
+          example: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scheduled start time (ISO 8601 / RFC 3339)
+          example: "2026-04-01T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scheduled end time (ISO 8601 / RFC 3339)
+          example: "2026-04-30T23:59:59Z"
+
+    UpdatePopupRequest:
+      type: object
+      required:
+        - title
+        - content
+        - position
+      description: Popup update payload. Note that website_id is immutable and cannot be modified.
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: "Summer Promotion"
+        content:
+          type: string
+          description: Updated HTML or text content
+          example: "<p>Summer discounts available now!</p>"
+        position:
+          $ref: '#/components/schemas/PopupPositionEnum'
+        status:
+          type: boolean
+          example: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-01T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-30T23:59:59Z"
+
+    PopupResponse:
+      type: object
+      required:
+        - id
+        - website_id
+        - title
+        - content
+        - position
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        website_id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: "Spring Promotion"
+        content:
+          type: string
+          example: "<p>Get 20% off with promo code SPRING20</p>"
+        position:
+          type: string
+          example: "center"
+        status:
+          type: boolean
+          example: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-04-01T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-04-30T23:59:59Z"
+
+    SinglePopupResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Popup fetched successfully"
+        data:
+          $ref: '#/components/schemas/PopupResponse'
+
+    PaginatedPopupsResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - pagination
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Popups fetched successfully"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PopupResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
