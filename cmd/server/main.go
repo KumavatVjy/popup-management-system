@@ -38,7 +38,9 @@ func main() { // entry point like index.php
 		slog.Error("database seeding failed", "error", err)
 		os.Exit(1)
 	}
-	router := gin.Default() // create HTTP server , router receive every incoming request
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(common.RequestLogger())
 
 	// Users Module
 	userRepository := users.NewUserRepository(database.DB)
