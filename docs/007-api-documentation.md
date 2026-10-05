@@ -294,8 +294,8 @@ Authenticates an administrator and returns a JWT access token.
 ```
 
 #### Possible Errors
-- **400 Bad Request**: Invalid JSON request payload.
-- **401 Unauthorized**: Invalid credentials (`"invalid credentials"`).
+- **400 Bad Request**: Malformed JSON syntax.
+- **401 Unauthorized**: Invalid credentials (`"invalid email or password"`) or disabled account (`"user account is disabled"`).
 - **500 Internal Server Error**: Failure during token generation.
 
 ---
@@ -550,7 +550,7 @@ Creates a new popup configuration associated with a website.
 | `title` | string | Required, min 2, max 255 chars | Title of the popup. |
 | `content` | string | Required | HTML or text content. |
 | `position` | string | Required, valid position | Placement on screen. |
-| `status` | boolean | Optional (defaults `true`) | Active toggle. |
+| `status` | boolean | Optional (omitted field defaults to `false`) | Active toggle. |
 | `start_time` | string/null | Optional, RFC 3339 | Schedule start. |
 | `end_time` | string/null | Optional, RFC 3339 | Schedule finish. |
 

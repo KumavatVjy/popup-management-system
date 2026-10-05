@@ -70,23 +70,31 @@ paths:
                     email: "admin@example.com"
                     role: "Super Admin"
         '400':
-          description: Invalid request payload syntax or missing fields
+          description: Invalid JSON request payload syntax
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                message: "Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
+                message: "unexpected end of JSON input"
         '401':
-          description: Invalid credentials
+          description: Invalid credentials or disabled user account
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                success: false
-                message: "invalid credentials"
+              examples:
+                invalidEmailOrPassword:
+                  summary: Invalid email or password
+                  value:
+                    success: false
+                    message: "invalid email or password"
+                accountDisabled:
+                  summary: User account is disabled
+                  value:
+                    success: false
+                    message: "user account is disabled"
         '500':
           description: Server failed to generate JWT authentication token
           content:
@@ -1038,9 +1046,7 @@ components:
 
     LoginRequest:
       type: object
-      required:
-        - email
-        - password
+      description: Administrator login credentials. Note that fields do not enforce binding validation tags; missing fields result in empty strings and produce a 401 error.
       properties:
         email:
           type: string
@@ -1192,7 +1198,7 @@ components:
           $ref: '#/components/schemas/PlatformEnum'
         status:
           type: boolean
-          default: true
+          description: Website active status. Note that omitting this field in the JSON payload results in false (Go boolean zero-value).
           example: true
 
     WebsiteResponse:
@@ -1294,7 +1300,7 @@ components:
           $ref: '#/components/schemas/PopupPositionEnum'
         status:
           type: boolean
-          default: true
+          description: Active toggle. Note that omitting this field in the JSON payload results in false (Go boolean zero-value).
           example: true
         start_time:
           type: string
@@ -1330,6 +1336,7 @@ components:
           $ref: '#/components/schemas/PopupPositionEnum'
         status:
           type: boolean
+          description: Active toggle. Note that omitting this field in the JSON payload results in false (Go boolean zero-value).
           example: true
         start_time:
           type: string
