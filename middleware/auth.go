@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -17,12 +18,14 @@ func AuthMiddleware() gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 
 		if authHeader == "" {
+			slog.Warn("authentication failed", "reason", "missing authorization header")
 			common.Error(c, http.StatusUnauthorized, "Authorization header is required")
 			c.Abort()
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			slog.Warn("authentication failed", "reason", "invalid authorization header")
 			common.Error(c, http.StatusUnauthorized, "Invalid authorization format")
 			c.Abort()
 			return
@@ -35,6 +38,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		)
 
 		if err != nil {
+			slog.Warn("authentication failed", "reason", "invalid token")
 			common.Error(c, http.StatusUnauthorized, "Invalid or expired token")
 			c.Abort()
 			return

@@ -1,6 +1,7 @@
 package users
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,7 @@ func (uc *UserController) Login(c *gin.Context) {
 	user, err := uc.Service.Login(request.Email, request.Password)
 
 	if err != nil {
+		slog.Warn("user login failed", "email", request.Email, "reason", "invalid credentials")
 		common.Error(c, http.StatusUnauthorized, err.Error())
 		return
 	}
@@ -50,6 +52,7 @@ func (uc *UserController) Login(c *gin.Context) {
 	)
 
 	if err != nil {
+		slog.Error("failed to generate jwt token", "error", err)
 		common.Error(
 			c,
 			http.StatusInternalServerError,
@@ -59,6 +62,7 @@ func (uc *UserController) Login(c *gin.Context) {
 	}
 
 	// Return successful login response
+	slog.Info("user login successful", "user_id", user.ID)
 	common.Success(c, "Login successful", gin.H{
 		"token": token,
 		"user": gin.H{
