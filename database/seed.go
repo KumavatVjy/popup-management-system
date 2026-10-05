@@ -2,14 +2,13 @@ package database
 
 import (
 	"log/slog"
-	"os"
 
 	"popup-manager-api/config"
 	"popup-manager-api/internal/users"
 	"popup-manager-api/utils"
 )
 
-func SeedDatabase() {
+func SeedDatabase() error {
 
 	var count int64
 
@@ -17,7 +16,7 @@ func SeedDatabase() {
 
 	if count > 0 {
 		slog.Info("users already exist, seeder skipped")
-		return
+		return nil
 	}
 
 	adminEmail := config.AppConfig.AdminEmail
@@ -28,13 +27,12 @@ func SeedDatabase() {
 	adminPassword := config.AppConfig.AdminPassword
 	if adminPassword == "" {
 		slog.Info("admin seed skipped", "reason", "ADMIN_PASSWORD not configured")
-		return
+		return nil
 	}
 
 	password, err := utils.HashPassword(adminPassword)
 	if err != nil {
-		slog.Error("failed to hash admin password", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	admin := users.User{
@@ -46,9 +44,9 @@ func SeedDatabase() {
 	}
 
 	if err := DB.Create(&admin).Error; err != nil {
-		slog.Error("failed to create default administrator", "error", err)
-		return
+		return err
 	}
 
 	slog.Info("admin user created", "email", adminEmail)
+	return nil
 }

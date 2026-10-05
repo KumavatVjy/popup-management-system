@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"log/slog"
+	"os"
 
 	"popup-manager-api/config"
 	"popup-manager-api/database"
@@ -23,9 +24,20 @@ func main() { // entry point like index.php
 
 	common.InitLogger(config.AppConfig.AppEnv)
 
-	database.ConnectDatabase()
-	database.MigrateDatabase()
-	database.SeedDatabase()
+	if err := database.ConnectDatabase(); err != nil {
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
+	}
+
+	if err := database.MigrateDatabase(); err != nil {
+		slog.Error("database migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	if err := database.SeedDatabase(); err != nil {
+		slog.Error("database seeding failed", "error", err)
+		os.Exit(1)
+	}
 	router := gin.Default() // create HTTP server , router receive every incoming request
 
 	// Users Module

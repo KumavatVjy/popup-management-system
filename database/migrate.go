@@ -2,14 +2,13 @@ package database
 
 import (
 	"log/slog"
-	"os"
 
 	"popup-manager-api/internal/popups"
 	"popup-manager-api/internal/users"
 	"popup-manager-api/internal/websites"
 )
 
-func MigrateDatabase() {
+func MigrateDatabase() error {
 
 	err := DB.AutoMigrate(
 		&users.User{},
@@ -18,9 +17,9 @@ func MigrateDatabase() {
 	)
 
 	if err != nil {
-		slog.Error("database migration failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	slog.Info("database migration completed")
+	return nil
 }
