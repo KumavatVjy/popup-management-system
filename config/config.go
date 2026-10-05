@@ -10,6 +10,7 @@ import (
 
 type Config struct {
 	AppName string
+	AppEnv  string
 	AppPort string
 
 	DBHost     string
@@ -33,6 +34,7 @@ func Load() error {
 	config := &Config{}
 
 	config.AppName = getEnv("APP_NAME", "popup-manager")
+	config.AppEnv = getEnv("APP_ENV", "development")
 
 	appPort := getEnv("APP_PORT", "")
 	if appPort == "" {

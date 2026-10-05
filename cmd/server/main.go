@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
+	"log/slog"
 
 	"popup-manager-api/config"
 	"popup-manager-api/database"
+	"popup-manager-api/internal/common"
 	"popup-manager-api/internal/popups"
 	"popup-manager-api/internal/users"
 	"popup-manager-api/internal/websites"
@@ -18,6 +20,9 @@ func main() { // entry point like index.php
 	if err := config.Load(); err != nil {
 		log.Fatalf("Failed to initialize configuration: %v", err)
 	}
+
+	common.InitLogger(config.AppConfig.AppEnv)
+
 	database.ConnectDatabase()
 	database.MigrateDatabase()
 	database.SeedDatabase()
@@ -45,5 +50,7 @@ func main() { // entry point like index.php
 	}
 
 	routes.SetupRoutes(router, controllers)
+
+	slog.Info("server started", "port", config.AppConfig.AppPort, "env", config.AppConfig.AppEnv)
 	router.Run(":" + config.AppConfig.AppPort) // this start the server
 }
