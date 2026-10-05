@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"log"
+	"log/slog"
+	"os"
 	"popup-manager-api/config"
 )
 
@@ -23,10 +24,11 @@ func ConnectDatabase() {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {
-		log.Fatalf("Database Connection Failed: %v", err)
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
 
 	DB = db
 
-	fmt.Println("Database Connected Successfully")
+	slog.Info("database connected", "host", config.AppConfig.DBHost, "port", config.AppConfig.DBPort)
 }

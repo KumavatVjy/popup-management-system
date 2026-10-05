@@ -1,7 +1,8 @@
 package database
 
 import (
-	"log"
+	"log/slog"
+	"os"
 
 	"popup-manager-api/internal/popups"
 	"popup-manager-api/internal/users"
@@ -17,8 +18,9 @@ func MigrateDatabase() {
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("database migration failed", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Database Migration Completed")
+	slog.Info("database migration completed")
 }
