@@ -40,6 +40,10 @@ func Load() error {
 	if appPort == "" {
 		return fmt.Errorf("APP_PORT is required")
 	}
+	appPortNum, err := strconv.Atoi(appPort)
+	if err != nil || appPortNum <= 0 || appPortNum > 65535 {
+		return fmt.Errorf("APP_PORT must be a valid port number")
+	}
 	config.AppPort = appPort
 
 	// Database
@@ -50,6 +54,10 @@ func Load() error {
 	config.DBPort = getEnv("DB_PORT", "")
 	if config.DBPort == "" {
 		return fmt.Errorf("DB_PORT is required")
+	}
+	dbPortNum, err := strconv.Atoi(config.DBPort)
+	if err != nil || dbPortNum <= 0 || dbPortNum > 65535 {
+		return fmt.Errorf("DB_PORT must be a valid port number")
 	}
 	config.DBName = getEnv("DB_NAME", "")
 	if config.DBName == "" {
@@ -75,6 +83,9 @@ func Load() error {
 	jwtExpire, err := strconv.Atoi(jwtExpireStr)
 	if err != nil {
 		return fmt.Errorf("JWT_EXPIRE_HOURS must be a valid integer")
+	}
+	if jwtExpire <= 0 {
+		return fmt.Errorf("JWT_EXPIRE_HOURS must be greater than zero")
 	}
 	config.JWTExpireHours = jwtExpire
 

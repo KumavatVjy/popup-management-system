@@ -12,7 +12,9 @@ func SeedDatabase() error {
 
 	var count int64
 
-	DB.Model(&users.User{}).Count(&count)
+	if err := DB.Model(&users.User{}).Count(&count).Error; err != nil {
+		return err
+	}
 
 	if count > 0 {
 		slog.Info("users already exist, seeder skipped")

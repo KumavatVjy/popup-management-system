@@ -18,6 +18,8 @@ import (
 
 func main() { // entry point like index.php
 
+	// Configuration must load before the structured logger can be initialized with AppEnv.
+	// Standard library log.Fatalf terminates startup immediately if bootstrap config fails.
 	if err := config.Load(); err != nil {
 		log.Fatalf("Failed to initialize configuration: %v", err)
 	}
@@ -66,5 +68,8 @@ func main() { // entry point like index.php
 	routes.SetupRoutes(router, controllers)
 
 	slog.Info("server started", "port", config.AppConfig.AppPort, "env", config.AppConfig.AppEnv)
-	router.Run(":" + config.AppConfig.AppPort) // this start the server
+	if err := router.Run(":" + config.AppConfig.AppPort); err != nil {
+		slog.Error("server failed to start", "error", err)
+		os.Exit(1)
+	}
 }
