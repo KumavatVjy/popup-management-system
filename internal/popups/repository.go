@@ -12,6 +12,7 @@ type PopupRepository interface {
 	GetAll(params common.QueryParams) ([]Popup, int64, error)
 	GetByID(id uint) (*Popup, error)
 	GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error)
+	GetByWebsite(websiteID uint) ([]Popup, error)
 	Update(popup *Popup) error
 	Delete(id uint) error
 }
@@ -82,6 +83,12 @@ func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryPara
 	err := db.Order(params.Sort + " " + params.Order).Offset(offset).Limit(params.Limit).Find(&popups).Error
 
 	return popups, total, err
+}
+
+func (r *popupRepository) GetByWebsite(websiteID uint) ([]Popup, error) {
+	var popups []Popup
+	err := r.db.Where("website_id = ?", websiteID).Order("id asc").Find(&popups).Error
+	return popups, err
 }
 
 func (r *popupRepository) Update(popup *Popup) error {

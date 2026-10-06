@@ -3,6 +3,7 @@ package popups
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -103,6 +104,23 @@ func (pc *PopupController) GetByWebsiteID(c *gin.Context) {
 
 	pagination := common.BuildPagination(total, params)
 	common.SuccessWithPagination(c, "Popups fetched successfully", MapPopupsToResponse(popups), pagination)
+}
+
+// Get public popups by website_key (unauthenticated public delivery endpoint)
+func (pc *PopupController) GetPublicPopups(c *gin.Context) {
+	websiteKey := strings.TrimSpace(c.Query("website_key"))
+	if websiteKey == "" {
+		common.Error(c, http.StatusBadRequest, "website_key query parameter is required")
+		return
+	}
+
+	popups, err := pc.service.GetPublicPopups(websiteKey)
+	if err != nil {
+		common.HandleError(c, err)
+		return
+	}
+
+	common.Success(c, "Public popups fetched successfully", MapPopupsToPublicResponse(popups))
 }
 
 // Update popup by ID

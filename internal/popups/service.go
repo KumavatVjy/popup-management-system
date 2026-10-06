@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"errors"
 	"strings"
 
 	"popup-manager-api/internal/common"
@@ -12,6 +13,7 @@ type PopupService interface {
 	GetAll(params common.QueryParams) ([]Popup, int64, error)
 	GetByID(id uint) (*Popup, error)
 	GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error)
+	GetPublicPopups(websiteKey string) ([]Popup, error)
 	Update(id uint, request UpdatePopupRequest) error
 	Delete(id uint) error
 }
@@ -93,6 +95,20 @@ func (s *popupService) GetByID(id uint) (*Popup, error) {
 
 func (s *popupService) GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error) {
 	return s.repository.GetByWebsiteID(websiteID, params)
+}
+
+func (s *popupService) GetPublicPopups(websiteKey string) ([]Popup, error) {
+	websiteKey = strings.TrimSpace(websiteKey)
+	if websiteKey == "" {
+		return nil, errors.New("website_key is required")
+	}
+
+	website, err := s.websiteRepository.GetByKey(websiteKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repository.GetByWebsite(website.ID)
 }
 
 func (s *popupService) Update(id uint, request UpdatePopupRequest) error {

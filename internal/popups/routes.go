@@ -7,8 +7,12 @@ import (
 )
 
 func RegisterRoutes(router *gin.RouterGroup, controller *PopupController) {
-	popups := router.Group("/popups")
+	// Public delivery route (unauthenticated)
+	public := router.Group("/public")
+	public.GET("/popups", controller.GetPublicPopups)
 
+	// Admin routes (requires authentication)
+	popups := router.Group("/popups")
 	popups.Use(middleware.AuthMiddleware())
 
 	popups.POST("", controller.Create)
