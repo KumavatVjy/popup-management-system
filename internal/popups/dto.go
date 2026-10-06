@@ -52,3 +52,33 @@ func MapPopupsToResponse(popups []Popup) []PopupResponse {
 	}
 	return responses
 }
+
+// PublicPopupResponse represents the sanitized public popup payload for the JavaScript SDK.
+// It deliberately excludes admin metadata (website_id, created_by, status, created_at, updated_at, deleted_at).
+type PublicPopupResponse struct {
+	ID        uint       `json:"id"`
+	Title     string     `json:"title"`
+	Content   string     `json:"content"`
+	Position  string     `json:"position"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
+}
+
+func MapPopupToPublicResponse(p Popup) PublicPopupResponse {
+	return PublicPopupResponse{
+		ID:        p.ID,
+		Title:     p.Title,
+		Content:   p.Content,
+		Position:  p.Position,
+		StartTime: p.StartTime,
+		EndTime:   p.EndTime,
+	}
+}
+
+func MapPopupsToPublicResponse(popups []Popup) []PublicPopupResponse {
+	responses := make([]PublicPopupResponse, 0, len(popups))
+	for _, p := range popups {
+		responses = append(responses, MapPopupToPublicResponse(p))
+	}
+	return responses
+}
