@@ -24,6 +24,8 @@ type Website struct {
 
 	Platform string `gorm:"size:50;not null" json:"platform"`
 
+	WebsiteKey string `gorm:"size:64;unique;not null" json:"website_key"`
+
 	Status bool `gorm:"default:true" json:"status"`
 
 	CreatedBy uint `json:"created_by"`

@@ -1,7 +1,11 @@
 package websites
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 
@@ -63,6 +67,24 @@ func isValidPlatform(platform string) bool {
 
 }
 
+// GenerateWebsiteKey generates a cryptographically secure random website key.
+// Format: wg_live_<48 hex chars> (total length: 56 characters, fitting VARCHAR(64)).
+func GenerateWebsiteKey() (string, error) {
+	bytes := make([]byte, 24)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to read secure random bytes: %w", err)
+	}
+	return "wg_live_" + hex.EncodeToString(bytes), nil
+}
+
+func isWebsiteKeyCollision(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate entry") && strings.Contains(msg, "website_key")
+}
+
 func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) error {
 
 	vErr := common.NewValidationError()
@@ -88,22 +110,47 @@ func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) er
 
 	// Check duplicate domain
 	existing, err := s.repository.GetByDomain(domain)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, common.ErrNotFound) && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	if existing != nil {
 		return common.ErrDuplicateDomain
 	}
 
-	website := Website{
-		WebsiteName: websiteName,
-		Domain:      domain,
-		Platform:    request.Platform,
-		Status:      true,
-		CreatedBy:   createdBy,
+	const maxRetries = 5
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		key, err := GenerateWebsiteKey()
+		if err != nil {
+			return errors.New("failed to generate website key")
+		}
+
+		website := Website{
+			WebsiteName: websiteName,
+			Domain:      domain,
+			Platform:    request.Platform,
+			WebsiteKey:  key,
+			Status:      true,
+			CreatedBy:   createdBy,
+		}
+
+		err = s.repository.Create(&website)
+		if err == nil {
+			return nil
+		}
+
+		if isWebsiteKeyCollision(err) {
+			lastErr = err
+			slog.Warn("website key collision occurred, retrying with a new key", "attempt", attempt+1)
+			continue
+		}
+
+		return err
 	}
 
-	return s.repository.Create(&website)
+	slog.Error("failed to generate unique website key after max retries", "error", lastErr)
+	return errors.New("failed to generate unique website key")
 }
 
 func (s *websiteService) GetAll(params common.QueryParams) ([]Website, int64, error) {
@@ -148,7 +195,7 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 
 	// Check duplicate domain for update
 	existing, err := s.repository.GetByDomain(domain)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, common.ErrNotFound) && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	if existing != nil && existing.ID != id {
@@ -159,6 +206,14 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 	website.Domain = domain
 	website.Platform = request.Platform
 	website.Status = request.Status
+
+	if strings.TrimSpace(website.WebsiteKey) == "" {
+		key, err := GenerateWebsiteKey()
+		if err != nil {
+			return errors.New("failed to generate website key")
+		}
+		website.WebsiteKey = key
+	}
 
 	return s.repository.Update(website)
 }

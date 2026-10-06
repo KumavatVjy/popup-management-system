@@ -16,6 +16,8 @@ type WebsiteRepository interface {
 
 	GetByDomain(domain string) (*Website, error)
 
+	GetByKey(key string) (*Website, error)
+
 	Update(website *Website) error
 
 	Delete(id uint) error
@@ -87,6 +89,25 @@ func (r *websiteRepository) GetByDomain(domain string) (*Website, error) {
 
 	err := r.db.
 		Where("domain = ?", domain).
+		First(&website).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &website, nil
+}
+
+// GET BY KEY
+func (r *websiteRepository) GetByKey(key string) (*Website, error) {
+
+	var website Website
+
+	err := r.db.
+		Where("website_key = ?", key).
 		First(&website).Error
 
 	if err != nil {
