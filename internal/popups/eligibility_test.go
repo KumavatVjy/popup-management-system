@@ -1,20 +1,25 @@
 package popups
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-yaml"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"popup-manager-api/config"
+	"popup-manager-api/internal/common"
 	"popup-manager-api/internal/websites"
 	"popup-manager-api/utils"
 )
@@ -31,6 +36,8 @@ func setupTestEnvironment(t *testing.T) (*gorm.DB, *gin.Engine, websites.Website
 		return nil, nil, nil, nil, ""
 	}
 
+	common.InitLogger(config.AppConfig.AppEnv)
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.AppConfig.DBUser,
 		config.AppConfig.DBPassword,
@@ -46,6 +53,9 @@ func setupTestEnvironment(t *testing.T) (*gorm.DB, *gin.Engine, websites.Website
 	}
 
 	websiteRepo := websites.NewWebsiteRepository(db)
+	websiteService := websites.NewWebsiteService(websiteRepo)
+	websiteCtrl := websites.NewWebsiteController(websiteService)
+
 	popupRepo := NewPopupRepository(db)
 	popupService := NewPopupService(popupRepo, websiteRepo)
 	popupCtrl := NewPopupController(popupService)
@@ -54,6 +64,7 @@ func setupTestEnvironment(t *testing.T) (*gorm.DB, *gin.Engine, websites.Website
 	router.Use(gin.Recovery())
 
 	api := router.Group("/api/v1")
+	websites.RegisterRoutes(api, websiteCtrl)
 	RegisterRoutes(api, popupCtrl)
 
 	adminToken, err := utils.GenerateJWT(1, "admin@example.com", "Super Admin")
@@ -378,6 +389,36 @@ func TestServerSidePopupEligibility(t *testing.T) {
 		t.Logf("PASS: Test J — Unknown website key returned HTTP 404 Not Found (body: %s)", recUnknown.Body.String())
 	}
 
+	// Test J2: Missing website_key parameter -> HTTP 400
+	reqMissing, _ := http.NewRequest(http.MethodGet, "/api/v1/public/popups", nil)
+	recMissing := httptest.NewRecorder()
+	router.ServeHTTP(recMissing, reqMissing)
+	if recMissing.Code != http.StatusBadRequest {
+		t.Errorf("Test J2 failed: Expected HTTP 400 for missing website_key, got %d", recMissing.Code)
+	}
+	var respMissing map[string]interface{}
+	_ = json.Unmarshal(recMissing.Body.Bytes(), &respMissing)
+	if respMissing["success"] != false || respMissing["message"] != "website_key query parameter is required" {
+		t.Errorf("Test J2 failed: Expected message 'website_key query parameter is required', got %v", respMissing["message"])
+	} else {
+		t.Logf("PASS: Test J2 — Missing website_key parameter returned HTTP 400 Bad Request")
+	}
+
+	// Test J3: Empty or whitespace-only website_key parameter -> HTTP 400
+	reqEmpty, _ := http.NewRequest(http.MethodGet, "/api/v1/public/popups?website_key=%20%20%20", nil)
+	recEmpty := httptest.NewRecorder()
+	router.ServeHTTP(recEmpty, reqEmpty)
+	if recEmpty.Code != http.StatusBadRequest {
+		t.Errorf("Test J3 failed: Expected HTTP 400 for whitespace website_key, got %d", recEmpty.Code)
+	}
+	var respEmpty map[string]interface{}
+	_ = json.Unmarshal(recEmpty.Body.Bytes(), &respEmpty)
+	if respEmpty["success"] != false || respEmpty["message"] != "website_key query parameter is required" {
+		t.Errorf("Test J3 failed: Expected message 'website_key query parameter is required', got %v", respEmpty["message"])
+	} else {
+		t.Logf("PASS: Test J3 — Whitespace-only website_key parameter returned HTTP 400 Bad Request")
+	}
+
 	// Test K: Authentication boundaries & Admin endpoints unchanged
 	// K1: Public endpoint accessible without admin JWT
 	recPubNoAuth, _ := callPublicAPI(w1Key)
@@ -414,6 +455,28 @@ func TestServerSidePopupEligibility(t *testing.T) {
 		t.Errorf("Test K3 failed: Admin listing expected 6 popups for W1, got %d", len(adminData))
 	} else {
 		t.Logf("PASS: Test K3 — Admin endpoint returned all 6 popups (active, inactive, future, past), admin behavior unchanged")
+	}
+
+	// K4: Admin endpoint rejected with malformed Authorization header -> HTTP 401
+	reqAdminMalformed, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/popups/website/%d", w1.ID), nil)
+	reqAdminMalformed.Header.Set("Authorization", "InvalidHeaderFormat")
+	recAdminMalformed := httptest.NewRecorder()
+	router.ServeHTTP(recAdminMalformed, reqAdminMalformed)
+	if recAdminMalformed.Code != http.StatusUnauthorized {
+		t.Errorf("Test K4 failed: Expected HTTP 401 for malformed Authorization header, got %d", recAdminMalformed.Code)
+	} else {
+		t.Logf("PASS: Test K4 — Malformed authorization header rejected with HTTP 401")
+	}
+
+	// K5: Admin endpoint rejected with invalid/expired JWT token -> HTTP 401
+	reqAdminInvalidToken, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/popups/website/%d", w1.ID), nil)
+	reqAdminInvalidToken.Header.Set("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature")
+	recAdminInvalidToken := httptest.NewRecorder()
+	router.ServeHTTP(recAdminInvalidToken, reqAdminInvalidToken)
+	if recAdminInvalidToken.Code != http.StatusUnauthorized {
+		t.Errorf("Test K5 failed: Expected HTTP 401 for invalid JWT token, got %d", recAdminInvalidToken.Code)
+	} else {
+		t.Logf("PASS: Test K5 — Invalid JWT token rejected with HTTP 401")
 	}
 
 	// Ordering test: created_at DESC, id DESC
@@ -499,4 +562,287 @@ func TestServerSidePopupEligibility(t *testing.T) {
 		}
 	}
 	t.Logf("PASS: DTO contract — Response contains only public fields, zero admin or internal metadata leaked")
+}
+
+func TestAdminCRUD_Regression(t *testing.T) {
+	db, router, websiteRepo, _, adminToken := setupTestEnvironment(t)
+	if db == nil {
+		return
+	}
+
+	nowNano := time.Now().UnixNano()
+	siteDomain := fmt.Sprintf("crud-regression-%d.com", nowNano)
+
+	// Step 1: Admin creates website
+	createSitePayload := map[string]interface{}{
+		"website_name": fmt.Sprintf("CRUD Site %d", nowNano),
+		"domain":       siteDomain,
+		"platform":     "HTML",
+	}
+	siteBody, _ := json.Marshal(createSitePayload)
+	reqCreateSite, _ := http.NewRequest(http.MethodPost, "/api/v1/websites", bytes.NewReader(siteBody))
+	reqCreateSite.Header.Set("Authorization", "Bearer "+adminToken)
+	reqCreateSite.Header.Set("Content-Type", "application/json")
+	recCreateSite := httptest.NewRecorder()
+	router.ServeHTTP(recCreateSite, reqCreateSite)
+
+	if recCreateSite.Code != http.StatusOK {
+		t.Fatalf("Admin Create Website failed with code %d: %s", recCreateSite.Code, recCreateSite.Body.String())
+	}
+
+	// Lookup created website to get ID and generated website_key
+	createdSite, err := websiteRepo.GetByDomain(siteDomain)
+	if err != nil || createdSite == nil {
+		t.Fatalf("Failed to fetch created website from DB: %v", err)
+	}
+
+	defer func() {
+		db.Unscoped().Where("website_id = ?", createdSite.ID).Delete(&Popup{})
+		db.Unscoped().Where("id = ?", createdSite.ID).Delete(&websites.Website{})
+		db.Unscoped().Where("domain LIKE 'crud-regression-%'").Delete(&websites.Website{})
+	}()
+
+	if createdSite.WebsiteKey == "" || !strings.HasPrefix(createdSite.WebsiteKey, "wg_live_") {
+		t.Fatalf("Expected website_key with prefix 'wg_live_', got %q", createdSite.WebsiteKey)
+	}
+	t.Logf("PASS: Website created with ID %d and Key %s", createdSite.ID, createdSite.WebsiteKey)
+
+	// Step 2: Admin gets website by ID
+	reqGetSite, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/websites/%d", createdSite.ID), nil)
+	reqGetSite.Header.Set("Authorization", "Bearer "+adminToken)
+	recGetSite := httptest.NewRecorder()
+	router.ServeHTTP(recGetSite, reqGetSite)
+
+	if recGetSite.Code != http.StatusOK {
+		t.Fatalf("Admin Get Website failed with code %d: %s", recGetSite.Code, recGetSite.Body.String())
+	}
+	var getSiteResp map[string]interface{}
+	_ = json.Unmarshal(recGetSite.Body.Bytes(), &getSiteResp)
+	siteData, ok := getSiteResp["data"].(map[string]interface{})
+	if !ok || siteData["domain"] != siteDomain {
+		t.Errorf("Get Website expected domain %s, got %v", siteDomain, siteData["domain"])
+	}
+	t.Logf("PASS: Admin Get Website verified")
+
+	// Step 3: Admin updates website
+	updateSitePayload := map[string]interface{}{
+		"website_name": fmt.Sprintf("Updated CRUD Site %d", nowNano),
+		"domain":       siteDomain,
+		"platform":     "WordPress",
+		"status":       true,
+	}
+	updSiteBody, _ := json.Marshal(updateSitePayload)
+	reqUpdSite, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/websites/%d", createdSite.ID), bytes.NewReader(updSiteBody))
+	reqUpdSite.Header.Set("Authorization", "Bearer "+adminToken)
+	reqUpdSite.Header.Set("Content-Type", "application/json")
+	recUpdSite := httptest.NewRecorder()
+	router.ServeHTTP(recUpdSite, reqUpdSite)
+
+	if recUpdSite.Code != http.StatusOK {
+		t.Fatalf("Admin Update Website failed with code %d: %s", recUpdSite.Code, recUpdSite.Body.String())
+	}
+	t.Logf("PASS: Admin Update Website verified")
+
+	// Step 4: Admin creates popup
+	createPopupPayload := map[string]interface{}{
+		"website_id": createdSite.ID,
+		"title":      "Integration Test Popup",
+		"content":    "<p>Exclusive discount banner</p>",
+		"position":   "center",
+		"status":     true,
+	}
+	popupBody, _ := json.Marshal(createPopupPayload)
+	reqCreatePopup, _ := http.NewRequest(http.MethodPost, "/api/v1/popups", bytes.NewReader(popupBody))
+	reqCreatePopup.Header.Set("Authorization", "Bearer "+adminToken)
+	reqCreatePopup.Header.Set("Content-Type", "application/json")
+	recCreatePopup := httptest.NewRecorder()
+	router.ServeHTTP(recCreatePopup, reqCreatePopup)
+
+	if recCreatePopup.Code != http.StatusOK {
+		t.Fatalf("Admin Create Popup failed with code %d: %s", recCreatePopup.Code, recCreatePopup.Body.String())
+	}
+
+	var createdPopup Popup
+	if err := db.Where("website_id = ? AND title = ?", createdSite.ID, "Integration Test Popup").First(&createdPopup).Error; err != nil {
+		t.Fatalf("Failed to retrieve created popup from DB: %v", err)
+	}
+	t.Logf("PASS: Popup created with ID %d for website ID %d", createdPopup.ID, createdSite.ID)
+
+	// Step 5: Admin gets popup by ID
+	reqGetPopup, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/popups/%d", createdPopup.ID), nil)
+	reqGetPopup.Header.Set("Authorization", "Bearer "+adminToken)
+	recGetPopup := httptest.NewRecorder()
+	router.ServeHTTP(recGetPopup, reqGetPopup)
+
+	if recGetPopup.Code != http.StatusOK {
+		t.Fatalf("Admin Get Popup failed with code %d: %s", recGetPopup.Code, recGetPopup.Body.String())
+	}
+	t.Logf("PASS: Admin Get Popup verified")
+
+	// Step 6: Admin updates popup
+	updatePopupPayload := map[string]interface{}{
+		"title":    "Updated Integration Popup",
+		"content":  "<p>Updated content</p>",
+		"position": PositionBottomRight,
+		"status":   true,
+	}
+	updPopupBody, _ := json.Marshal(updatePopupPayload)
+	reqUpdPopup, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/popups/%d", createdPopup.ID), bytes.NewReader(updPopupBody))
+	reqUpdPopup.Header.Set("Authorization", "Bearer "+adminToken)
+	reqUpdPopup.Header.Set("Content-Type", "application/json")
+	recUpdPopup := httptest.NewRecorder()
+	router.ServeHTTP(recUpdPopup, reqUpdPopup)
+
+	if recUpdPopup.Code != http.StatusOK {
+		t.Fatalf("Admin Update Popup failed with code %d: %s", recUpdPopup.Code, recUpdPopup.Body.String())
+	}
+	t.Logf("PASS: Admin Update Popup verified")
+
+	// Step 7: Public delivery endpoint delivers the updated popup via created website key
+	reqPublic, _ := http.NewRequest(http.MethodGet, "/api/v1/public/popups?website_key="+createdSite.WebsiteKey, nil)
+	recPublic := httptest.NewRecorder()
+	router.ServeHTTP(recPublic, reqPublic)
+
+	if recPublic.Code != http.StatusOK {
+		t.Fatalf("Public Delivery failed with code %d: %s", recPublic.Code, recPublic.Body.String())
+	}
+	var pubResp map[string]interface{}
+	_ = json.Unmarshal(recPublic.Body.Bytes(), &pubResp)
+	pubData, ok := pubResp["data"].([]interface{})
+	if !ok || len(pubData) != 1 {
+		t.Fatalf("Expected 1 public popup, got %v", pubResp["data"])
+	}
+	item := pubData[0].(map[string]interface{})
+	if item["title"] != "Updated Integration Popup" || item["position"] != PositionBottomRight {
+		t.Errorf("Unexpected public popup data: %v", item)
+	}
+
+	// Verify public DTO sanitization for newly delivered popup
+	forbiddenKeys := []string{"website_id", "status", "created_by", "created_at", "updated_at", "deleted_at"}
+	for _, fk := range forbiddenKeys {
+		if _, exists := item[fk]; exists {
+			t.Errorf("Public popup DTO leaked forbidden field %q", fk)
+		}
+	}
+	t.Logf("PASS: Public Delivery of created popup succeeded with sanitized DTO")
+
+	// Step 8: Admin deletes popup
+	reqDelPopup, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/popups/%d", createdPopup.ID), nil)
+	reqDelPopup.Header.Set("Authorization", "Bearer "+adminToken)
+	recDelPopup := httptest.NewRecorder()
+	router.ServeHTTP(recDelPopup, reqDelPopup)
+
+	if recDelPopup.Code != http.StatusOK {
+		t.Fatalf("Admin Delete Popup failed with code %d: %s", recDelPopup.Code, recDelPopup.Body.String())
+	}
+	t.Logf("PASS: Admin Delete Popup verified")
+
+	// Step 9: Public delivery returns empty array [] after popup deletion
+	reqPublicAfterDel, _ := http.NewRequest(http.MethodGet, "/api/v1/public/popups?website_key="+createdSite.WebsiteKey, nil)
+	recPublicAfterDel := httptest.NewRecorder()
+	router.ServeHTTP(recPublicAfterDel, reqPublicAfterDel)
+
+	if recPublicAfterDel.Code != http.StatusOK {
+		t.Fatalf("Public Delivery after deletion failed with code %d: %s", recPublicAfterDel.Code, recPublicAfterDel.Body.String())
+	}
+	if !strings.Contains(recPublicAfterDel.Body.String(), `"data":[]`) {
+		t.Errorf("Expected '\"data\":[]' after deletion, got %s", recPublicAfterDel.Body.String())
+	}
+	t.Logf("PASS: Public Delivery returned empty array after popup deletion")
+
+	// Step 10: Admin deletes website
+	reqDelSite, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/websites/%d", createdSite.ID), nil)
+	reqDelSite.Header.Set("Authorization", "Bearer "+adminToken)
+	recDelSite := httptest.NewRecorder()
+	router.ServeHTTP(recDelSite, reqDelSite)
+
+	if recDelSite.Code != http.StatusOK {
+		t.Fatalf("Admin Delete Website failed with code %d: %s", recDelSite.Code, recDelSite.Body.String())
+	}
+	t.Logf("PASS: Admin Delete Website verified")
+
+	// Step 11: Public delivery returns 404 after website deletion
+	reqPublicAfterSiteDel, _ := http.NewRequest(http.MethodGet, "/api/v1/public/popups?website_key="+createdSite.WebsiteKey, nil)
+	recPublicAfterSiteDel := httptest.NewRecorder()
+	router.ServeHTTP(recPublicAfterSiteDel, reqPublicAfterSiteDel)
+
+	if recPublicAfterSiteDel.Code != http.StatusNotFound {
+		t.Fatalf("Public Delivery for deleted website expected 404, got %d", recPublicAfterSiteDel.Code)
+	}
+	t.Logf("PASS: Public Delivery returned 404 for deleted website")
+}
+
+func TestSystemConfigAndLogging_Regression(t *testing.T) {
+	_, _, _, _, _ = setupTestEnvironment(t)
+	if config.AppConfig == nil {
+		t.Fatal("config.AppConfig is nil")
+	}
+	if config.AppConfig.AppPort == "" {
+		t.Error("AppConfig.AppPort should not be empty")
+	}
+	if config.AppConfig.DBHost == "" {
+		t.Error("AppConfig.DBHost should not be empty")
+	}
+	if slog.Default() == nil {
+		t.Error("slog.Default() should be non-nil")
+	}
+	t.Logf("PASS: System configuration and structured logging verified")
+}
+
+func TestOpenAPI_SpecificationValidity(t *testing.T) {
+	data, err := os.ReadFile("../../docs/openapi.yaml")
+	if err != nil {
+		data, err = os.ReadFile("docs/openapi.yaml")
+	}
+	if err != nil {
+		t.Fatalf("Failed to read openapi.yaml: %v", err)
+	}
+
+	var root map[string]interface{}
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		t.Fatalf("docs/openapi.yaml is invalid YAML: %v", err)
+	}
+
+	paths, ok := root["paths"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Missing 'paths' section in openapi.yaml")
+	}
+
+	publicPopups, ok := paths["/api/v1/public/popups"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Missing '/api/v1/public/popups' in paths")
+	}
+
+	if _, hasGet := publicPopups["get"]; !hasGet {
+		t.Errorf("Missing GET operation for /api/v1/public/popups")
+	}
+	if _, hasOptions := publicPopups["options"]; !hasOptions {
+		t.Errorf("Missing OPTIONS operation for /api/v1/public/popups")
+	}
+
+	// Verify all $ref in document resolve to components
+	components, _ := root["components"].(map[string]interface{})
+	schemas, _ := components["schemas"].(map[string]interface{})
+	parameters, _ := components["parameters"].(map[string]interface{})
+
+	lines := strings.Split(string(data), "\n")
+	for lineNum, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "$ref:") || strings.Contains(trimmed, "$ref:") {
+			idx := strings.Index(trimmed, "$ref:")
+			refVal := strings.Trim(trimmed[idx+5:], " '\"")
+			if strings.HasPrefix(refVal, "#/components/schemas/") {
+				schemaName := strings.TrimPrefix(refVal, "#/components/schemas/")
+				if _, exists := schemas[schemaName]; !exists {
+					t.Errorf("Line %d: unresolved schema reference %q", lineNum+1, refVal)
+				}
+			} else if strings.HasPrefix(refVal, "#/components/parameters/") {
+				paramName := strings.TrimPrefix(refVal, "#/components/parameters/")
+				if _, exists := parameters[paramName]; !exists {
+					t.Errorf("Line %d: unresolved parameter reference %q", lineNum+1, refVal)
+				}
+			}
+		}
+	}
+	t.Logf("PASS: docs/openapi.yaml syntax, public route specs, and all $ref references validated successfully")
 }
