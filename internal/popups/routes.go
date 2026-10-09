@@ -7,9 +7,11 @@ import (
 )
 
 func RegisterRoutes(router *gin.RouterGroup, controller *PopupController) {
-	// Public delivery route (unauthenticated)
+	// Public delivery route (unauthenticated, with CORS middleware)
 	public := router.Group("/public")
+	public.Use(middleware.PublicCORSMiddleware())
 	public.GET("/popups", controller.GetPublicPopups)
+	public.OPTIONS("/popups", func(c *gin.Context) {})
 
 	// Admin routes (requires authentication)
 	popups := router.Group("/popups")

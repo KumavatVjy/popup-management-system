@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -24,6 +25,8 @@ type Config struct {
 
 	AdminEmail    string
 	AdminPassword string
+
+	PublicCORSAllowedOrigins []string
 }
 
 var AppConfig *Config
@@ -93,8 +96,28 @@ func Load() error {
 	config.AdminEmail = getEnv("ADMIN_EMAIL", "")
 	config.AdminPassword = getEnv("ADMIN_PASSWORD", "") // Optional
 
+	// Public CORS Allowed Origins (Optional)
+	corsRaw := getEnv("PUBLIC_CORS_ALLOWED_ORIGINS", "")
+	config.PublicCORSAllowedOrigins = parseCORSOrigins(corsRaw)
+
 	AppConfig = config
 	return nil
+}
+
+func parseCORSOrigins(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+	return origins
 }
 
 func getEnv(key, fallback string) string {
