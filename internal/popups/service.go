@@ -3,6 +3,7 @@ package popups
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"popup-manager-api/internal/common"
 	"popup-manager-api/internal/websites"
@@ -108,7 +109,7 @@ func (s *popupService) GetPublicPopups(websiteKey string) ([]Popup, error) {
 		return nil, err
 	}
 
-	return s.repository.GetByWebsite(website.ID)
+	return s.repository.GetEligiblePublicByWebsite(website.ID, time.Now())
 }
 
 func (s *popupService) Update(id uint, request UpdatePopupRequest) error {

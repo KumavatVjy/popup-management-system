@@ -2,6 +2,8 @@ package popups
 
 import (
 	"errors"
+	"time"
+
 	"popup-manager-api/internal/common"
 
 	"gorm.io/gorm"
@@ -13,6 +15,7 @@ type PopupRepository interface {
 	GetByID(id uint) (*Popup, error)
 	GetByWebsiteID(websiteID uint, params common.QueryParams) ([]Popup, int64, error)
 	GetByWebsite(websiteID uint) ([]Popup, error)
+	GetEligiblePublicByWebsite(websiteID uint, now time.Time) ([]Popup, error)
 	Update(popup *Popup) error
 	Delete(id uint) error
 }
@@ -88,6 +91,16 @@ func (r *popupRepository) GetByWebsiteID(websiteID uint, params common.QueryPara
 func (r *popupRepository) GetByWebsite(websiteID uint) ([]Popup, error) {
 	var popups []Popup
 	err := r.db.Where("website_id = ?", websiteID).Order("id asc").Find(&popups).Error
+	return popups, err
+}
+
+func (r *popupRepository) GetEligiblePublicByWebsite(websiteID uint, now time.Time) ([]Popup, error) {
+	var popups []Popup
+	err := r.db.
+		Where("website_id = ? AND status = ? AND (start_time IS NULL OR start_time <= ?) AND (end_time IS NULL OR end_time >= ?)",
+			websiteID, true, now, now).
+		Order("created_at DESC, id DESC").
+		Find(&popups).Error
 	return popups, err
 }
 
