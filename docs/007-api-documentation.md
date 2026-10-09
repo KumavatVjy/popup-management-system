@@ -8,8 +8,9 @@ This document describes the current REST API contract for the **Popup Management
 
 The API provides management capabilities for:
 - **Authentication & User Profile**: Administrative login and session identity verification.
-- **Websites**: Managing registered client domains, target platforms, and operational status.
+- **Websites**: Managing registered client domains, target platforms, operational status, and public integration keys.
 - **Popups**: Configuring banners/modals, positioning, schedule windows, and associations with registered websites.
+- **Public Delivery & SDKs**: Delivering active, scheduled popups to client browser integrations and SDKs with origin-scoped CORS protection.
 
 All application endpoints are versioned under:
 ```
@@ -50,8 +51,8 @@ Authorization: Bearer <JWT_TOKEN>
 ### Access Matrix
 | Access Level | Endpoints |
 | :--- | :--- |
-| **Public** | `GET /`, `POST /api/v1/login` |
-| **Protected** | `GET /api/v1/profile`, all `/api/v1/websites` routes, all `/api/v1/popups` routes |
+| **Public** | `GET /`, `POST /api/v1/login`, `GET /api/v1/public/popups`, `OPTIONS /api/v1/public/popups` |
+| **Protected** | `GET /api/v1/profile`, all `/api/v1/websites` routes, all admin `/api/v1/popups` routes |
 
 ---
 
@@ -741,14 +742,153 @@ Soft-deletes a popup record.
 
 ---
 
-## 12. HTTP Status Codes
+## 12. Public Delivery & CORS API
+
+The public delivery module provides unauthenticated, read-only delivery of active and currently eligible popups to browser integrations (such as the JavaScript SDK, WordPress plugins, React applications, and static HTML websites).
+
+### 12.1 Overview & Architecture
+- **Unauthenticated**: The public delivery endpoint does not require an administrator JWT. Access is identified by a public, non-privileged `website_key`.
+- **Read-Only**: The endpoint only permits read operations (`GET` and `OPTIONS`).
+- **Sanitized DTO**: The response uses `PublicPopupResponse`, deliberately stripping all internal administrative metadata (`website_id`, `created_by`, `status`, `created_at`, `updated_at`, `deleted_at`).
+- **Server-Side Eligibility**: Only active popups (`status = true`) whose scheduling window is currently valid (`start_time <= now` and `end_time >= now`, with inclusive boundaries) and which are not soft-deleted are returned.
+- **Deterministic Ordering**: Popups are always sorted by `created_at DESC, id DESC`.
+- **Empty Result Guarantee**: When no popups are eligible, the endpoint returns HTTP 200 with an empty JSON array `"data": []` (never `null`).
+
+### 12.2 CORS Policy & Configuration
+Cross-Origin Resource Sharing (CORS) is enabled **exclusively** on the `/api/v1/public` route group via focused middleware. Admin endpoints remain strictly isolated and protected from cross-origin access.
+
+#### Configuration
+- **Environment Variable**: `PUBLIC_CORS_ALLOWED_ORIGINS`
+- **Format**: Comma-separated list of exact browser origins (scheme + domain + optional port):
+  ```env
+  PUBLIC_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,https://example.com
+  ```
+- **Matching Rules**:
+  - Exact match against the incoming `Origin` header.
+  - Surrounding whitespace is trimmed and empty entries are ignored.
+  - No wildcards (`*`) or arbitrary origins are accepted.
+  - Origins must not contain paths, query strings, or fragments.
+  - If unset or empty, cross-origin browser access is disabled by default.
+
+#### Header Behavior
+- **Allowed Origins**:
+  - Emits `Access-Control-Allow-Origin: <origin>` matching the request origin.
+  - Emits `Vary: Origin` to ensure HTTP caches correctly partition cached responses.
+- **Preflight (`OPTIONS`)**:
+  - Responds with `204 No Content`.
+  - Emits `Access-Control-Allow-Methods: GET, OPTIONS`.
+  - Emits `Access-Control-Allow-Headers: Content-Type, Accept`.
+  - Emits `Vary: Origin`.
+- **Disallowed Origins**:
+  - Does **not** emit `Access-Control-Allow-Origin`. Browser blocks client scripts from reading the response.
+  - Preflight returns `204 No Content` without CORS headers.
+- **Non-Browser Clients**:
+  - Requests without an `Origin` header are handled normally without CORS headers.
+- **Credentials**:
+  - `Access-Control-Allow-Credentials` is **never** enabled.
+
+> **Important Security Boundary**: CORS is a browser security mechanism that restricts which web origins can read HTTP responses in JavaScript. It is **not** an authentication mechanism and does not prevent non-browser or server-to-server clients (e.g. `curl`, Postman) from calling the public delivery endpoint.
+
+---
+
+### 12.3 Fetch Eligible Public Popups
+Retrieves active, scheduled popups for a client website.
+
+- **HTTP Method**: `GET`
+- **URL**: `/api/v1/public/popups`
+- **Authentication**: None (Public)
+- **CORS**: Enabled for allowed origins
+
+#### Query Parameters
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `website_key` | string | **Yes** | The public website integration key (e.g. `wg_live_...`). |
+
+#### Scheduling & Eligibility Rules
+| Condition | Delivery Status |
+| :--- | :--- |
+| `status = false` | Excluded |
+| `status = true`, `start_time = NULL`, `end_time = NULL` | **Eligible** |
+| `start_time <= now`, `end_time = NULL` | **Eligible** |
+| `start_time > now` (future start) | Excluded |
+| `end_time < now` (expired end) | Excluded |
+| `start_time = NULL`, `end_time >= now` | **Eligible** |
+| `start_time <= now` AND `end_time >= now` | **Eligible** |
+| Popup is soft-deleted | Excluded |
+| Belongs to a different website | Excluded |
+
+#### Successful Response (200 OK — With Popups)
+```json
+{
+  "success": true,
+  "message": "Public popups fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "title": "Spring Promotion",
+      "content": "<p>Get 20% off with promo code SPRING20</p>",
+      "position": "center",
+      "start_time": "2026-04-01T00:00:00Z",
+      "end_time": "2026-04-30T23:59:59Z"
+    }
+  ]
+}
+```
+
+#### Successful Response (200 OK — No Eligible Popups)
+```json
+{
+  "success": true,
+  "message": "Public popups fetched successfully",
+  "data": []
+}
+```
+
+#### Possible Errors
+- **400 Bad Request**: Missing or empty `website_key` parameter:
+  ```json
+  {
+    "success": false,
+    "message": "website_key query parameter is required"
+  }
+  ```
+- **404 Not Found**: Unknown or invalid `website_key`:
+  ```json
+  {
+    "success": false,
+    "message": "resource not found"
+  }
+  ```
+- **500 Internal Server Error**: Database or server runtime error.
+
+---
+
+### 12.4 Public Delivery Preflight (OPTIONS)
+Handles preflight checks issued by browsers before making cross-origin requests.
+
+- **HTTP Method**: `OPTIONS`
+- **URL**: `/api/v1/public/popups`
+- **Authentication**: None (Public)
+- **Response**: `204 No Content`
+- **Response Headers** (for allowed origins):
+  ```http
+  Access-Control-Allow-Origin: http://localhost:3000
+  Access-Control-Allow-Methods: GET, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Accept
+  Vary: Origin
+  ```
+
+---
+
+## 13. HTTP Status Codes
 
 | Status Code | Reason Phrase | Usage in API |
 | :--- | :--- | :--- |
-| **200** | OK | Successful GET requests, and successful mutations (Create, Update, Delete) via `common.Success`. |
-| **400** | Bad Request | Invalid parameter types (e.g. non-numeric ID) or JSON payload binding failures. |
+| **200** | OK | Successful GET requests (including public delivery), and successful mutations (Create, Update, Delete) via `common.Success`. |
+| **204** | No Content | Successful CORS preflight OPTIONS response via `c.AbortWithStatus(204)`. |
+| **400** | Bad Request | Invalid parameter types (e.g. non-numeric ID), missing required query parameters (e.g. `website_key`), or JSON payload binding failures. |
 | **401** | Unauthorized | Missing/invalid `Authorization` header, invalid JWT token, or incorrect credentials during login. |
-| **404** | Not Found | Target resource not found in database (`common.ErrNotFound`). |
+| **404** | Not Found | Target resource not found in database (`common.ErrNotFound`), or unknown website key. |
 | **409** | Conflict | Domain unique constraint duplicate collision (`common.ErrDuplicateDomain`). |
 | **422** | Unprocessable Entity | Domain/business logic validation failures (returns `errors` map). |
 | **500** | Internal Server Error | Server runtime failures, such as JWT signing failure or unhandled database errors. |
@@ -757,7 +897,7 @@ Soft-deletes a popup record.
 
 ---
 
-## 13. Complete Endpoint Summary
+## 14. Complete Endpoint Summary
 
 | Method | Endpoint | Auth | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -775,12 +915,14 @@ Soft-deletes a popup record.
 | `GET` | `/api/v1/popups/website/:website_id` | Yes | List popups for a specific website |
 | `PUT` | `/api/v1/popups/:id` | Yes | Update popup by ID |
 | `DELETE` | `/api/v1/popups/:id` | Yes | Delete popup by ID |
+| `GET` | `/api/v1/public/popups` | No | Fetch active, eligible popups for public delivery |
+| `OPTIONS` | `/api/v1/public/popups` | No | CORS preflight check for public delivery |
 
 ---
 
-## 14. Example Requests
+## 15. Example Requests
 
-### 14.1 Login
+### 15.1 Login
 ```bash
 curl -X POST http://localhost:8082/api/v1/login \
   -H "Content-Type: application/json" \
@@ -790,13 +932,13 @@ curl -X POST http://localhost:8082/api/v1/login \
   }'
 ```
 
-### 14.2 Fetch Profile
+### 15.2 Fetch Profile
 ```bash
 curl -X GET http://localhost:8082/api/v1/profile \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 14.3 Create Website
+### 15.3 Create Website
 ```bash
 curl -X POST http://localhost:8082/api/v1/websites \
   -H "Authorization: Bearer <TOKEN>" \
@@ -808,13 +950,13 @@ curl -X POST http://localhost:8082/api/v1/websites \
   }'
 ```
 
-### 14.4 List Websites with Search & Sort
+### 15.4 List Websites with Search & Sort
 ```bash
 curl -X GET "http://localhost:8082/api/v1/websites?page=1&limit=10&search=shop&sort=domain&order=asc" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 14.5 Create Popup
+### 15.5 Create Popup
 ```bash
 curl -X POST http://localhost:8082/api/v1/popups \
   -H "Authorization: Bearer <TOKEN>" \
@@ -830,17 +972,31 @@ curl -X POST http://localhost:8082/api/v1/popups \
   }'
 ```
 
-### 14.6 List Popups by Website
+### 15.6 List Popups by Website
 ```bash
 curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=created_at&order=desc" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
+### 15.7 Fetch Public Popups (Client Integration)
+```bash
+curl -X GET "http://localhost:8082/api/v1/public/popups?website_key=wg_live_447bc77f24ea10cf3aa5bf14eb50e3092ea28be70570b599" \
+  -H "Origin: http://localhost:3000"
+```
+
+### 15.8 Public Popup CORS Preflight
+```bash
+curl -X OPTIONS "http://localhost:8082/api/v1/public/popups?website_key=wg_live_447bc77f24ea10cf3aa5bf14eb50e3092ea28be70570b599" \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: GET" \
+  -H "Access-Control-Request-Headers: Content-Type, Accept"
+```
+
 ---
 
-## 15. Example Responses
+## 16. Example Responses
 
-### 15.1 Successful Login
+### 16.1 Successful Login
 ```json
 {
   "success": true,
@@ -857,7 +1013,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.2 Successful Profile
+### 16.2 Successful Profile
 ```json
 {
   "success": true,
@@ -870,7 +1026,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.3 Single Website Response
+### 16.3 Single Website Response
 ```json
 {
   "success": true,
@@ -885,7 +1041,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.4 Single Popup Response
+### 16.4 Single Popup Response
 ```json
 {
   "success": true,
@@ -903,7 +1059,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.5 Paginated List Response
+### 16.5 Paginated List Response
 ```json
 {
   "success": true,
@@ -929,7 +1085,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.6 Validation Error Response (422 Unprocessable Entity)
+### 16.6 Validation Error Response (422 Unprocessable Entity)
 ```json
 {
   "success": false,
@@ -940,7 +1096,7 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.7 Resource Not Found (404 Not Found)
+### 16.7 Resource Not Found (404 Not Found)
 ```json
 {
   "success": false,
@@ -948,10 +1104,46 @@ curl -X GET "http://localhost:8082/api/v1/popups/website/1?page=1&limit=5&sort=c
 }
 ```
 
-### 15.8 Duplicate Domain Conflict (409 Conflict)
+### 16.8 Duplicate Domain Conflict (409 Conflict)
 ```json
 {
   "success": false,
   "message": "website domain already exists"
 }
 ```
+
+### 16.9 Public Popups Response (200 OK)
+```json
+{
+  "success": true,
+  "message": "Public popups fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "title": "Spring Promotion",
+      "content": "<p>Get 20% off with promo code SPRING20</p>",
+      "position": "center",
+      "start_time": "2026-04-01T00:00:00Z",
+      "end_time": "2026-04-30T23:59:59Z"
+    }
+  ]
+}
+```
+
+### 16.10 Empty Public Popups Response (200 OK)
+```json
+{
+  "success": true,
+  "message": "Public popups fetched successfully",
+  "data": []
+}
+```
+
+### 16.11 Missing Website Key Error (400 Bad Request)
+```json
+{
+  "success": false,
+  "message": "website_key query parameter is required"
+}
+```
+

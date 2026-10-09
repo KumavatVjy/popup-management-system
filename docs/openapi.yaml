@@ -15,6 +15,8 @@ tags:
     description: Website management and platform configuration endpoints
   - name: Popups
     description: Popup management, scheduling, and placement endpoints
+  - name: Public Delivery
+    description: Public unauthenticated endpoints for client website delivery and JavaScript SDKs
 
 paths:
   /:
@@ -835,6 +837,114 @@ paths:
                 success: false
                 message: "internal server error"
 
+  /api/v1/public/popups:
+    get:
+      tags:
+        - Public Delivery
+        - Popups
+      summary: Fetch eligible public popups for website delivery
+      description: >
+        Public delivery endpoint for client websites and JavaScript SDKs.
+        Returns active, currently scheduled popups for the website identified by `website_key`.
+        Does not require administrator JWT authentication. Enforces server-side eligibility filtering
+        (active status, inclusive start/end time scheduling boundaries, soft-delete exclusions, website isolation)
+        and deterministic ordering (`created_at DESC, id DESC`). Cross-Origin Resource Sharing (CORS) is enabled
+        exclusively for origins permitted by `PUBLIC_CORS_ALLOWED_ORIGINS`.
+      operationId: getPublicPopups
+      parameters:
+        - $ref: '#/components/parameters/WebsiteKeyQuery'
+      responses:
+        '200':
+          description: Eligible public popups retrieved successfully
+          headers:
+            Access-Control-Allow-Origin:
+              description: Echoed request origin if permitted by `PUBLIC_CORS_ALLOWED_ORIGINS`
+              schema:
+                type: string
+                example: "http://localhost:3000"
+            Vary:
+              description: Informs HTTP caches that response varies by request origin
+              schema:
+                type: string
+                example: "Origin"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPopupsResponse'
+              example:
+                success: true
+                message: "Public popups fetched successfully"
+                data:
+                  - id: 1
+                    title: "Spring Promotion"
+                    content: "<p>Get 20% off with promo code SPRING20</p>"
+                    position: "center"
+                    start_time: "2026-04-01T00:00:00Z"
+                    end_time: "2026-04-30T23:59:59Z"
+        '400':
+          description: Missing or empty website_key query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "website_key query parameter is required"
+        '404':
+          description: Website key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+        '500':
+          description: Database query or server failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "internal server error"
+
+    options:
+      tags:
+        - Public Delivery
+        - Popups
+      summary: CORS preflight for public popup delivery
+      description: >
+        Handles browser CORS preflight requests for the public popup delivery route.
+        If the request `Origin` matches an entry in `PUBLIC_CORS_ALLOWED_ORIGINS`,
+        responds with 204 No Content and appropriate CORS headers allowing `GET` and `OPTIONS`
+        with `Content-Type` and `Accept` headers.
+      operationId: optionsPublicPopups
+      responses:
+        '204':
+          description: Preflight request processed successfully
+          headers:
+            Access-Control-Allow-Origin:
+              description: Echoed request origin if permitted by `PUBLIC_CORS_ALLOWED_ORIGINS`
+              schema:
+                type: string
+                example: "http://localhost:3000"
+            Access-Control-Allow-Methods:
+              description: Permitted HTTP methods for cross-origin requests
+              schema:
+                type: string
+                example: "GET, OPTIONS"
+            Access-Control-Allow-Headers:
+              description: Permitted request headers
+              schema:
+                type: string
+                example: "Content-Type, Accept"
+            Vary:
+              description: Informs HTTP caches that response varies by request origin
+              schema:
+                type: string
+                example: "Origin"
+
 components:
   securitySchemes:
     BearerAuth:
@@ -957,6 +1067,15 @@ components:
         format: int64
         minimum: 1
       example: 1
+
+    WebsiteKeyQuery:
+      name: website_key
+      in: query
+      required: true
+      description: Unique public website identifier key (e.g. `wg_live_...`)
+      schema:
+        type: string
+      example: "wg_live_447bc77f24ea10cf3aa5bf14eb50e3092ea28be70570b599"
 
   schemas:
     SystemInfoResponse:
@@ -1426,3 +1545,58 @@ components:
             $ref: '#/components/schemas/PopupResponse'
         pagination:
           $ref: '#/components/schemas/Pagination'
+
+    PublicPopupResponse:
+      type: object
+      description: Sanitized public popup payload for JavaScript SDKs and client websites. Excludes internal administrative metadata.
+      required:
+        - id
+        - title
+        - content
+        - position
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: "Spring Promotion"
+        content:
+          type: string
+          description: HTML or text content of the popup
+          example: "<p>Get 20% off with promo code SPRING20</p>"
+        position:
+          $ref: '#/components/schemas/PopupPositionEnum'
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scheduled display start time (ISO 8601 / RFC 3339)
+          example: "2026-04-01T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scheduled display end time (ISO 8601 / RFC 3339)
+          example: "2026-04-30T23:59:59Z"
+
+    PublicPopupsResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Public popups fetched successfully"
+        data:
+          type: array
+          description: List of currently active, eligible popups ordered by created_at DESC, id DESC. Serializes to empty array [] when no popups match.
+          items:
+            $ref: '#/components/schemas/PublicPopupResponse'
+
