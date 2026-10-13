@@ -1,7 +1,6 @@
 package popups
 
 import (
-	"errors"
 	"strings"
 	"time"
 
@@ -101,12 +100,16 @@ func (s *popupService) GetByWebsiteID(websiteID uint, params common.QueryParams)
 func (s *popupService) GetPublicPopups(websiteKey string) ([]Popup, error) {
 	websiteKey = strings.TrimSpace(websiteKey)
 	if websiteKey == "" {
-		return nil, errors.New("website_key is required")
+		return nil, common.ErrBadRequest
 	}
 
 	website, err := s.websiteRepository.GetByKey(websiteKey)
 	if err != nil {
 		return nil, err
+	}
+
+	if !website.Status {
+		return nil, common.ErrNotFound
 	}
 
 	return s.repository.GetEligiblePublicByWebsite(website.ID, time.Now())
