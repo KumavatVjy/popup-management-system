@@ -14,42 +14,76 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-yaml"
-	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"popup-manager-api/config"
-	"popup-manager-api/internal/common"
 	"popup-manager-api/internal/websites"
 	"popup-manager-api/utils"
 )
 
+func extractDBNameFromDSN(dsn string) string {
+	slashIdx := strings.LastIndex(dsn, "/")
+	if slashIdx == -1 {
+		return ""
+	}
+	rest := dsn[slashIdx+1:]
+	if qIdx := strings.Index(rest, "?"); qIdx != -1 {
+		rest = rest[:qIdx]
+	}
+	return strings.TrimSpace(rest)
+}
+
+func validateTestDSN(dsn string, appDBName string) (string, error) {
+	if strings.TrimSpace(dsn) == "" {
+		return "", fmt.Errorf("TEST_DATABASE_DSN is not configured")
+	}
+	dbName := extractDBNameFromDSN(dsn)
+	if dbName == "" {
+		return "", fmt.Errorf("could not parse database name from TEST_DATABASE_DSN")
+	}
+	lower := strings.ToLower(dbName)
+	if !strings.HasSuffix(lower, "_test") && !strings.Contains(lower, "test") {
+		return "", fmt.Errorf("refusing to run integration tests against unsafe database %q: database name must end in '_test' or contain 'test' (e.g. popup_management_test)", dbName)
+	}
+	if appDBName != "" && strings.EqualFold(dbName, appDBName) {
+		return "", fmt.Errorf("refusing to run integration tests: TEST_DATABASE_DSN points to configured application database %q", appDBName)
+	}
+	return dbName, nil
+}
+
 func setupTestEnvironment(t *testing.T) (*gorm.DB, *gin.Engine, websites.WebsiteRepository, PopupRepository, string) {
 	gin.SetMode(gin.TestMode)
 
-	// Attempt to load .env from current or parent directories
-	_ = godotenv.Load("../../.env")
-	_ = godotenv.Load(".env")
-
-	if err := config.Load(); err != nil {
-		t.Skipf("Skipping test: config could not be loaded: %v", err)
+	testDSN := strings.TrimSpace(os.Getenv("TEST_DATABASE_DSN"))
+	if testDSN == "" {
+		t.Skip("Skipping database integration test: TEST_DATABASE_DSN is not configured. Set TEST_DATABASE_DSN (e.g. 'root:password@tcp(localhost:3306)/popup_management_test?charset=utf8mb4&parseTime=True&loc=Local') pointing to a dedicated disposable test database to run database integration tests.")
 		return nil, nil, nil, nil, ""
 	}
 
-	common.InitLogger(config.AppConfig.AppEnv)
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.AppConfig.DBUser,
-		config.AppConfig.DBPassword,
-		config.AppConfig.DBHost,
-		config.AppConfig.DBPort,
-		config.AppConfig.DBName,
-	)
-
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	appDBName := os.Getenv("DB_NAME")
+	dbName, err := validateTestDSN(testDSN, appDBName)
 	if err != nil {
-		t.Skipf("Skipping test: database connection failed: %v", err)
+		t.Fatalf("Database integration test safety check failed: %v", err)
 		return nil, nil, nil, nil, ""
+	}
+
+	db, err := gorm.Open(mysql.Open(testDSN), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to connect to configured TEST_DATABASE_DSN (%s): %v", dbName, err)
+		return nil, nil, nil, nil, ""
+	}
+
+	// Auto-migrate schema on the dedicated test database
+	if err := db.AutoMigrate(&websites.Website{}, &Popup{}); err != nil {
+		t.Fatalf("Failed to auto-migrate test database: %v", err)
+		return nil, nil, nil, nil, ""
+	}
+
+	config.AppConfig = &config.Config{
+		JWTSecret:                "test-secret-key-32-chars-long-123",
+		JWTExpireHours:           24,
+		PublicCORSAllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001"},
 	}
 
 	websiteRepo := websites.NewWebsiteRepository(db)
@@ -845,4 +879,33 @@ func TestOpenAPI_SpecificationValidity(t *testing.T) {
 		}
 	}
 	t.Logf("PASS: docs/openapi.yaml syntax, public route specs, and all $ref references validated successfully")
+}
+
+func TestValidateTestDatabaseDSN(t *testing.T) {
+	// Valid test DSN ending in _test
+	dbName, err := validateTestDSN("root:pass@tcp(localhost:3306)/popup_management_test?charset=utf8mb4", "popup_mgmt_dev")
+	if err != nil {
+		t.Errorf("Expected valid DSN to pass, got error: %v", err)
+	}
+	if dbName != "popup_management_test" {
+		t.Errorf("Expected dbName 'popup_management_test', got %q", dbName)
+	}
+
+	// Unsafe DSN not containing 'test'
+	_, errUnsafe := validateTestDSN("root:pass@tcp(localhost:3306)/popup_management_production?charset=utf8mb4", "")
+	if errUnsafe == nil {
+		t.Errorf("Expected unsafe production database name to fail validation!")
+	}
+
+	// DSN pointing to configured application database
+	_, errAppMatch := validateTestDSN("root:pass@tcp(localhost:3306)/popup_test?charset=utf8mb4", "popup_test")
+	if errAppMatch == nil {
+		t.Errorf("Expected DSN matching application DB name to fail validation!")
+	}
+
+	// Missing DSN
+	_, errEmpty := validateTestDSN("", "")
+	if errEmpty == nil {
+		t.Errorf("Expected empty DSN to fail validation!")
+	}
 }
