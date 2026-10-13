@@ -81,6 +81,8 @@ func setupTestEnvironment(t *testing.T) (*gorm.DB, *gin.Engine, websites.Website
 	}
 
 	config.AppConfig = &config.Config{
+		AppPort:                  "8080",
+		DBHost:                   "127.0.0.1",
 		JWTSecret:                "test-secret-key-32-chars-long-123",
 		JWTExpireHours:           24,
 		PublicCORSAllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001"},

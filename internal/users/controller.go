@@ -40,7 +40,7 @@ func (uc *UserController) Login(c *gin.Context) {
 
 	if err != nil {
 		slog.Warn("user login failed", "email", request.Email, "reason", "invalid credentials")
-		common.Error(c, http.StatusUnauthorized, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -53,11 +53,7 @@ func (uc *UserController) Login(c *gin.Context) {
 
 	if err != nil {
 		slog.Error("failed to generate jwt token", "error", err)
-		common.Error(
-			c,
-			http.StatusInternalServerError,
-			"Failed to generate authentication token",
-		)
+		common.HandleError(c, err)
 		return
 	}
 
