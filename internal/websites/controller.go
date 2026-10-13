@@ -63,7 +63,7 @@ func (wc *WebsiteController) List(c *gin.Context) {
 	websites, total, err := wc.service.GetAll(params)
 
 	if err != nil {
-		common.Error(c, http.StatusInternalServerError, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 

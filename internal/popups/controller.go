@@ -53,7 +53,7 @@ func (pc *PopupController) List(c *gin.Context) {
 	params := common.GetQueryParams(c, allowedSorts)
 	popups, total, err := pc.service.GetAll(params)
 	if err != nil {
-		common.Error(c, http.StatusInternalServerError, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (pc *PopupController) GetByWebsiteID(c *gin.Context) {
 	params := common.GetQueryParams(c, allowedSorts)
 	popups, total, err := pc.service.GetByWebsiteID(uint(websiteID), params)
 	if err != nil {
-		common.Error(c, http.StatusInternalServerError, err.Error())
+		common.HandleError(c, err)
 		return
 	}
 
