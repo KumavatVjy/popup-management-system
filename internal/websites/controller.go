@@ -139,3 +139,20 @@ func (wc *WebsiteController) Delete(c *gin.Context) {
 	common.Success(c, "Website deleted successfully", nil)
 
 }
+
+// Get integration details by website ID
+func (wc *WebsiteController) GetIntegrationDetails(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		common.Error(c, http.StatusBadRequest, "Invalid website ID")
+		return
+	}
+
+	website, err := wc.service.GetByID(uint(id))
+	if err != nil {
+		common.HandleError(c, err)
+		return
+	}
+
+	common.Success(c, "Website integration details fetched successfully", MapWebsiteToIntegrationResponse(*website))
+}

@@ -43,3 +43,17 @@ func MapWebsitesToResponse(websites []Website) []WebsiteResponse {
 	}
 	return responses
 }
+
+type WebsiteIntegrationResponse struct {
+	ID         uint   `json:"id"`
+	Domain     string `json:"domain"`
+	WebsiteKey string `json:"website_key"`
+}
+
+func MapWebsiteToIntegrationResponse(w Website) WebsiteIntegrationResponse {
+	return WebsiteIntegrationResponse{
+		ID:         w.ID,
+		Domain:     w.Domain,
+		WebsiteKey: w.WebsiteKey,
+	}
+}

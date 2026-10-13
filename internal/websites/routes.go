@@ -17,6 +17,7 @@ func RegisterRoutes(router *gin.RouterGroup, controller *WebsiteController) {
 	websites.GET("", controller.List)
 
 	websites.GET("/:id", controller.GetByID)
+	websites.GET("/:id/integration", controller.GetIntegrationDetails)
 
 	websites.PUT("/:id", controller.Update)
 
