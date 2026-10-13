@@ -458,6 +458,68 @@ paths:
                 success: false
                 message: "resource not found"
 
+  /api/v1/websites/{id}/integration:
+    get:
+      tags:
+        - Websites
+      summary: Get website integration details
+      description: Returns integration parameters (website ID, domain, and public website key) needed to configure the browser JavaScript SDK. Requires administrator authentication.
+      operationId: getWebsiteIntegrationDetails
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WebsiteIdParam'
+      responses:
+        '200':
+          description: Website integration details fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebsiteIntegrationResponse'
+              example:
+                success: true
+                message: "Website integration details fetched successfully"
+                data:
+                  id: 1
+                  domain: "acme.example.com"
+                  website_key: "wg_live_acme_secret_integration_key_999"
+        '400':
+          description: Non-numeric or invalid website ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid website ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Authorization header is required"
+        '404':
+          description: Website not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "resource not found"
+        '500':
+          description: Database query or server runtime failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "internal server error"
+
   /api/v1/popups:
     post:
       tags:
@@ -846,10 +908,12 @@ paths:
       description: >
         Public delivery endpoint for client websites and JavaScript SDKs.
         Returns active, currently scheduled popups for the website identified by `website_key`.
-        Does not require administrator JWT authentication. Enforces server-side eligibility filtering
-        (active status, inclusive start/end time scheduling boundaries, soft-delete exclusions, website isolation)
-        and deterministic ordering (`created_at DESC, id DESC`). Cross-Origin Resource Sharing (CORS) is enabled
-        exclusively for origins permitted by `PUBLIC_CORS_ALLOWED_ORIGINS`.
+        Does not require administrator JWT authentication. If the website is inactive (`status: false`)
+        or the `website_key` is unknown, returns HTTP 404 Not Found without disclosing website existence.
+        Enforces server-side eligibility filtering (active status, inclusive start/end time scheduling
+        boundaries, soft-delete exclusions, website isolation) and deterministic ordering
+        (`created_at DESC, id DESC`). Cross-Origin Resource Sharing (CORS) is enabled exclusively
+        for origins permitted by `PUBLIC_CORS_ALLOWED_ORIGINS`.
       operationId: getPublicPopups
       parameters:
         - $ref: '#/components/parameters/WebsiteKeyQuery'
@@ -891,7 +955,7 @@ paths:
                 success: false
                 message: "website_key query parameter is required"
         '404':
-          description: Website key not found
+          description: Website key not found or website is inactive
           content:
             application/json:
               schema:
@@ -1361,6 +1425,40 @@ components:
           example: "Website fetched successfully"
         data:
           $ref: '#/components/schemas/WebsiteResponse'
+
+    WebsiteIntegrationData:
+      type: object
+      required:
+        - id
+        - domain
+        - website_key
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        domain:
+          type: string
+          example: "acme.example.com"
+        website_key:
+          type: string
+          example: "wg_live_acme_secret_integration_key_999"
+
+    WebsiteIntegrationResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Website integration details fetched successfully"
+        data:
+          $ref: '#/components/schemas/WebsiteIntegrationData'
 
     PaginatedWebsitesResponse:
       type: object

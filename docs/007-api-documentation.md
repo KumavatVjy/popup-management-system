@@ -446,7 +446,35 @@ Retrieves single website details.
 
 ---
 
-### 10.4 Update Website
+### 10.4 Get Website Integration Details
+Retrieves integration configuration details (`id`, `domain`, `website_key`) required by the client-side JavaScript SDK. This protected endpoint ensures administrator access is required to view the integration key. The generic `WebsiteResponse` intentionally omits `website_key`.
+
+- **HTTP Method**: `GET`
+- **URL**: `/api/v1/websites/:id/integration`
+- **Authentication**: Required (`Authorization: Bearer <token>`)
+
+#### Successful Response (200 OK)
+```json
+{
+  "success": true,
+  "message": "Website integration details fetched successfully",
+  "data": {
+    "id": 1,
+    "domain": "acme.example.com",
+    "website_key": "wg_live_acme_secret_integration_key_999"
+  }
+}
+```
+
+#### Possible Errors
+- **400 Bad Request**: Invalid non-numeric ID parameter.
+- **401 Unauthorized**: Missing or invalid authentication token.
+- **404 Not Found**: Website does not exist (`"resource not found"`).
+- **500 Internal Server Error**: Internal runtime failure.
+
+---
+
+### 10.5 Update Website
 Updates an existing website.
 
 - **HTTP Method**: `PUT`
@@ -486,7 +514,7 @@ Updates an existing website.
 
 ---
 
-### 10.5 Delete Website
+### 10.6 Delete Website
 Soft-deletes a website record.
 
 - **HTTP Method**: `DELETE`
@@ -852,7 +880,7 @@ Retrieves active, scheduled popups for a client website.
     "message": "website_key query parameter is required"
   }
   ```
-- **404 Not Found**: Unknown or invalid `website_key`:
+- **404 Not Found**: Unknown `website_key` or inactive website (`status: false`):
   ```json
   {
     "success": false,

@@ -556,19 +556,22 @@ popup-manager-sdk/
 
 ---
 
-## 28. Open Backend Prerequisites
+## 28. Backend Prerequisites & Implementation Status
 
-Before Phase 3 Lesson 2 (SDK Implementation) can proceed to live integration, the backend must implement the following architectural prerequisites:
+All architectural prerequisites have been fully implemented, verified, and hardened:
 
-1. **Website Public Key Management**:
-   - Add a `website_key` column to the `websites` table (`VARCHAR(64)`, unique, indexed).
-   - Generate secure, random public keys (e.g., `wg_live_<random_bytes>`) upon website registration.
-2. **Public Delivery Endpoint**:
-   - Implement `GET /api/v1/public/popups?website_key={key}`.
-   - Must be unauthenticated (accessible without JWT).
-   - Must return only sanitized public fields (`id`, `title`, `content`, `position`, `start_time`, `end_time`).
-3. **Server-Side Active Filtering**:
-   - The public endpoint must automatically query `WHERE status = true AND deleted_at IS NULL`.
-   - Optionally filter by current timestamp (`start_time <= NOW() AND (end_time IS NULL OR end_time >= NOW())`).
-4. **CORS Headers**:
-   - Configure Gin CORS middleware on the public delivery route to allow cross-origin browser requests.
+1. **Website Public Key Management**: Completed ✅
+   - Added `website_key` column to `websites` table (`VARCHAR(64)`, unique, indexed).
+   - Generates cryptographically secure keys (`wg_live_<hex>`) on website creation.
+   - Protected integration endpoint `GET /api/v1/websites/:id/integration` exposes integration details (`id`, `domain`, `website_key`) to authenticated administrators.
+2. **Public Delivery Endpoint**: Completed ✅
+   - `GET /api/v1/public/popups?website_key={key}` implemented.
+   - Unauthenticated endpoint for browser SDK delivery.
+   - Returns sanitized public fields (`id`, `title`, `content`, `position`, `start_time`, `end_time`).
+3. **Server-Side Active & Eligibility Filtering**: Completed ✅
+   - Filters popups by `status = true`, `start_time <= NOW()`, and `(end_time IS NULL OR end_time >= NOW())`.
+   - Enforces inactive website rule: inactive websites (`status = false`) return HTTP 404 without disclosing website existence.
+4. **CORS Headers**: Completed ✅
+   - Scoped CORS middleware on `/api/v1/public/popups` supporting configurable origins via `PUBLIC_CORS_ALLOWED_ORIGINS`.
+5. **Runtime Lifecycle & Reentrancy Hardening**: Completed ✅
+   - SDK lifecycle hardened against synchronous reentrancy on event callbacks (`popup:loaded` subscribers destroying or reinitializing SDK).
