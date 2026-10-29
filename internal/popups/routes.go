@@ -1,6 +1,8 @@
 package popups
 
 import (
+	"time"
+
 	"popup-manager-api/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -10,12 +12,14 @@ func RegisterRoutes(router *gin.RouterGroup, controller *PopupController) {
 	// Public delivery route (unauthenticated, with CORS middleware)
 	public := router.Group("/public")
 	public.Use(middleware.PublicCORSMiddleware())
-	public.GET("/popups", controller.GetPublicPopups)
+	public.GET("/popups", middleware.NewRateLimiter(60, time.Minute), controller.GetPublicPopups)
 	public.OPTIONS("/popups", func(c *gin.Context) {})
 
 	// Admin routes (requires authentication)
 	popups := router.Group("/popups")
-	popups.Use(middleware.AuthMiddleware())
+	popups.Use(middleware.AdminCORSMiddleware(), middleware.AuthMiddleware())
+	popups.OPTIONS("", func(c *gin.Context) {})
+	popups.OPTIONS("/*path", func(c *gin.Context) {})
 
 	popups.POST("", controller.Create)
 	popups.GET("", controller.List)

@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	ErrNotFound            = errors.New("resource not found")
-	ErrDuplicateDomain     = errors.New("website domain already exists")
+	ErrDuplicateDomain     = errors.New("website host already exists; use the existing website and target popup page paths")
 	ErrBadRequest          = errors.New("bad request")
 	ErrValidation          = errors.New("validation failed")
 	ErrUnauthorized        = errors.New("unauthorized")

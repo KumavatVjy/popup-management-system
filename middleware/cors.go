@@ -65,3 +65,52 @@ func PublicCORSMiddleware(customOrigins ...[]string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// AdminCORSMiddleware permits explicitly configured admin console origins. Admin
+// authentication uses bearer headers, so cookies and credentialed CORS are not needed.
+func AdminCORSMiddleware(customOrigins ...[]string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var origins []string
+		if len(customOrigins) > 0 && customOrigins[0] != nil {
+			origins = customOrigins[0]
+		} else if config.AppConfig != nil {
+			origins = config.AppConfig.AdminCORSAllowedOrigins
+		}
+
+		origin := strings.TrimSpace(c.GetHeader("Origin"))
+		if origin == "" {
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		allowed := false
+		for _, candidate := range origins {
+			if strings.TrimSpace(candidate) == origin {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Vary", "Origin")
+		if c.Request.Method == http.MethodOptions {
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, X-Requested-With, Origin")
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}

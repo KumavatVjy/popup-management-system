@@ -27,6 +27,7 @@ type Config struct {
 	AdminPassword string
 
 	PublicCORSAllowedOrigins []string
+	AdminCORSAllowedOrigins  []string
 }
 
 var AppConfig *Config
@@ -99,6 +100,11 @@ func Load() error {
 	// Public CORS Allowed Origins (Optional)
 	corsRaw := getEnv("PUBLIC_CORS_ALLOWED_ORIGINS", "")
 	config.PublicCORSAllowedOrigins = parseCORSOrigins(corsRaw)
+	adminCORSRaw := getEnv("ADMIN_CORS_ALLOWED_ORIGINS", "")
+	if adminCORSRaw == "" && config.AppEnv == "development" {
+		adminCORSRaw = "http://localhost:5173"
+	}
+	config.AdminCORSAllowedOrigins = parseCORSOrigins(adminCORSRaw)
 
 	AppConfig = config
 	return nil

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"time"
 
 	"popup-manager-api/config"
@@ -38,6 +39,9 @@ func ValidateJWT(tokenString string) (*JWTClaims, error) {
 		tokenString,
 		&JWTClaims{},
 		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(config.AppConfig.JWTSecret), nil
 		},
 	)

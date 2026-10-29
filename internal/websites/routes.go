@@ -10,7 +10,9 @@ func RegisterRoutes(router *gin.RouterGroup, controller *WebsiteController) {
 
 	websites := router.Group("/websites")
 
-	websites.Use(middleware.AuthMiddleware())
+	websites.Use(middleware.AdminCORSMiddleware(), middleware.AuthMiddleware())
+	websites.OPTIONS("", func(c *gin.Context) {})
+	websites.OPTIONS("/*path", func(c *gin.Context) {})
 
 	websites.POST("", controller.Create)
 

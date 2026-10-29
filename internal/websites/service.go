@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"popup-manager-api/internal/common"
@@ -38,9 +39,90 @@ func NewWebsiteService(repository WebsiteRepository) WebsiteService {
 
 }
 
-func isValidDomain(domain string) bool {
-	regex := regexp.MustCompile(`^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	return regex.MatchString(domain)
+var (
+	domainHostRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$`)
+	ipHostRegex     = regexp.MustCompile(`^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$`)
+)
+
+// NormalizeAndValidateDomain returns the canonical website origin host:
+// - Strips scheme (http://, https://, //)
+// - Strips leading www.
+// - Normalizes localhost and 127.0.0.1 (with optional port)
+// - Ignores page paths so all routes on the same host share one website key
+func NormalizeAndValidateDomain(input string) (string, error) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return "", errors.New("domain or URL cannot be empty")
+	}
+
+	// 1. Strip protocol (http://, https://, or //)
+	reProtocol := regexp.MustCompile(`(?i)^(?:https?:)?//`)
+	trimmed = reProtocol.ReplaceAllString(trimmed, "")
+
+	// 2. Strip fragment (#) and query string (?) if any
+	if idx := strings.Index(trimmed, "#"); idx != -1 {
+		trimmed = trimmed[:idx]
+	}
+	if idx := strings.Index(trimmed, "?"); idx != -1 {
+		trimmed = trimmed[:idx]
+	}
+
+	// A website key belongs to the origin host; routes are handled by popup targeting.
+	var hostPart string
+	if slashIdx := strings.Index(trimmed, "/"); slashIdx != -1 {
+		hostPart = trimmed[:slashIdx]
+	} else {
+		hostPart = trimmed
+	}
+
+	hostPart = strings.ToLower(strings.TrimSpace(hostPart))
+	// Strip leading www.
+	if strings.HasPrefix(hostPart, "www.") {
+		hostPart = strings.TrimPrefix(hostPart, "www.")
+	}
+
+	if hostPart == "" {
+		return "", errors.New("domain or host cannot be empty")
+	}
+
+	// Validate host (with optional port)
+	hostWithoutPort := hostPart
+	if colonIdx := strings.LastIndex(hostPart, ":"); colonIdx != -1 {
+		hostWithoutPort = hostPart[:colonIdx]
+		portStr := hostPart[colonIdx+1:]
+		portNum, err := strconv.Atoi(portStr)
+		if err != nil || portNum < 1 || portNum > 65535 {
+			return "", errors.New("invalid port number in domain or URL")
+		}
+	}
+
+	// Host must be either localhost, loopback IP, or valid public domain
+	isLocalhost := hostWithoutPort == "localhost" || ipHostRegex.MatchString(hostWithoutPort)
+	if !isLocalhost && !domainHostRegex.MatchString(hostWithoutPort) {
+		return "", errors.New("invalid domain format")
+	}
+
+	return hostPart, nil
+}
+
+// ExtractWebsitePath extracts a normalized route from a previously registered URL.
+// It is used during migration to preserve page-specific popup assignments.
+func ExtractWebsitePath(input string) string {
+	value := strings.TrimSpace(input)
+	value = regexp.MustCompile(`(?i)^(?:https?:)?//`).ReplaceAllString(value, "")
+	if index := strings.IndexAny(value, "?#"); index >= 0 {
+		value = value[:index]
+	}
+	slashIndex := strings.Index(value, "/")
+	if slashIndex < 0 {
+		return ""
+	}
+	path := regexp.MustCompile(`/+`).ReplaceAllString(value[slashIndex:], "/")
+	path = strings.TrimRight(path, "/")
+	if path == "" {
+		return ""
+	}
+	return path
 }
 
 func isValidPlatform(platform string) bool {
@@ -99,9 +181,9 @@ func (s *websiteService) Create(request CreateWebsiteRequest, createdBy uint) er
 		vErr.Add("platform", "invalid platform")
 	}
 
-	domain := strings.ToLower(strings.TrimSpace(request.Domain))
-	if !isValidDomain(domain) {
-		vErr.Add("domain", "invalid domain format")
+	domain, dErr := NormalizeAndValidateDomain(request.Domain)
+	if dErr != nil {
+		vErr.Add("domain", dErr.Error())
 	}
 
 	if vErr.HasErrors() {
@@ -184,9 +266,9 @@ func (s *websiteService) Update(id uint, request UpdateWebsiteRequest) error {
 		vErr.Add("platform", "invalid platform")
 	}
 
-	domain := strings.ToLower(strings.TrimSpace(request.Domain))
-	if !isValidDomain(domain) {
-		vErr.Add("domain", "invalid domain format")
+	domain, dErr := NormalizeAndValidateDomain(request.Domain)
+	if dErr != nil {
+		vErr.Add("domain", dErr.Error())
 	}
 
 	if vErr.HasErrors() {

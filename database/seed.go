@@ -1,26 +1,17 @@
 package database
 
 import (
+	"errors"
 	"log/slog"
 
 	"popup-manager-api/config"
 	"popup-manager-api/internal/users"
 	"popup-manager-api/utils"
+
+	"gorm.io/gorm"
 )
 
 func SeedDatabase() error {
-
-	var count int64
-
-	if err := DB.Model(&users.User{}).Count(&count).Error; err != nil {
-		return err
-	}
-
-	if count > 0 {
-		slog.Info("users already exist, seeder skipped")
-		return nil
-	}
-
 	adminEmail := config.AppConfig.AdminEmail
 	if adminEmail == "" {
 		adminEmail = "admin@example.com"
@@ -32,6 +23,16 @@ func SeedDatabase() error {
 		return nil
 	}
 
+	var existing users.User
+	err := DB.Where("email = ?", adminEmail).First(&existing).Error
+	if err == nil {
+		slog.Info("admin user already exists", "email", adminEmail)
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Admin does not exist: create it
 	password, err := utils.HashPassword(adminPassword)
 	if err != nil {
 		return err

@@ -119,6 +119,7 @@ func (pc *PopupController) GetPublicPopups(c *gin.Context) {
 		common.HandleError(c, err)
 		return
 	}
+	popups = FilterPopupsByPagePath(popups, c.Query("page_path"))
 
 	common.Success(c, "Public popups fetched successfully", MapPopupsToPublicResponse(popups))
 }
